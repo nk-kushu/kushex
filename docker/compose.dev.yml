@@ -1,0 +1,38 @@
+# Layer on top of compose.standalone.yml; paths are relative to that file.
+services:
+  frontend:
+    build:
+      target: development
+    command:
+      [
+        "pnpm",
+        "--filter",
+        "@kushex/standalone",
+        "dev",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "80",
+        "--strictPort",
+      ]
+    init: true
+    environment:
+      NODE_ENV: development
+      API_PROXY_TARGET: http://backend:3000
+      # Polling makes source edits reliable across Docker Desktop bind mounts.
+      CHOKIDAR_USEPOLLING: "true"
+    volumes:
+      - ../apps/standalone/src:/app/apps/standalone/src
+      - ../apps/standalone/index.html:/app/apps/standalone/index.html
+      - ../apps/standalone/vite.config.ts:/app/apps/standalone/vite.config.ts
+      - ../packages/ui/src:/app/packages/ui/src
+
+  backend:
+    build:
+      target: development
+    command: ["pnpm", "--filter", "@kushex/server", "dev"]
+    environment:
+      NODE_ENV: development
+    volumes:
+      - ../packages/server/src:/app/packages/server/src
+      - ../packages/server/tsconfig.json:/app/packages/server/tsconfig.json

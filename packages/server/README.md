@@ -1,7 +1,8 @@
 # Kushex server
 
 Minimal Node.js and TypeScript HTTP server with no runtime dependencies.
-Requires Node.js 22.18 or newer; development uses native TypeScript support.
+Requires Node.js 22.18 or newer; development uses `tsx watch` to run TypeScript
+and restart the server when files change. Run `typecheck` separately to check types.
 
 Run from the repository root:
 
