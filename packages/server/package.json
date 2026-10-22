@@ -1,0 +1,20 @@
+{
+  "name": "@kushex/server",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Kushex Node.js server.",
+  "type": "module",
+  "engines": {
+    "node": ">=22.18.0"
+  },
+  "scripts": {
+    "dev": "node --watch src/index.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "typescript": "~5.9.3"
+  }
+}
