@@ -1,0 +1,36 @@
+/*
+ * Kushex panel styles. Layer order: Tailwind reset < antd < Tailwind utilities.
+ * Preflight is NOT included here (it would leak into a React host page); hosts that
+ * own the whole page or a shadow root add ./preflight.css.
+ */
+@layer theme, base, antd, components, utilities;
+
+@import "tailwindcss/theme.css" layer(theme) prefix(kx);
+@import "tailwindcss/utilities.css" layer(utilities) prefix(kx);
+
+/* Scan the whole ui source tree, wherever the build runs from. */
+@source "../..";
+
+/*
+ * Bridge: expose antd tokens to Tailwind. antd writes --kx-ant-* (cssVar.prefix "kx-ant",
+ * see app/theme.ts) and ThemeBridge mirrors them onto the panel root.
+ * Tailwind's own variables are prefixed --kx-*, so antd must not use the bare "kx" prefix.
+ */
+@theme inline {
+  --color-primary: var(--kx-ant-color-primary);
+  --color-success: var(--kx-ant-color-success);
+  --color-warning: var(--kx-ant-color-warning);
+  --color-error: var(--kx-ant-color-error);
+  --color-surface: var(--kx-ant-color-bg-container);
+  --color-surface-muted: var(--kx-ant-color-bg-layout);
+  --color-fill: var(--kx-ant-color-fill-tertiary);
+  --color-border: var(--kx-ant-color-border);
+  --color-text: var(--kx-ant-color-text);
+  --color-text-muted: var(--kx-ant-color-text-secondary);
+  --radius-kx: var(--kx-ant-border-radius);
+  --font-sans: var(--kx-ant-font-family);
+  --font-mono: var(--kx-ant-font-family-code);
+}
+
+/* Dark mode follows the antd algorithm, toggled by a class on the panel root */
+@custom-variant dark (&:where(.kx-dark, .kx-dark *));

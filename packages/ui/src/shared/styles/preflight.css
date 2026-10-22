@@ -1,0 +1,4 @@
+/* Tailwind reset. Only for hosts that own the page (standalone) or a shadow root (embed). */
+@layer theme, base, antd, components, utilities;
+
+@import "tailwindcss/preflight.css" layer(base);
