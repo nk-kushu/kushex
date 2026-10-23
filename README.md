@@ -26,6 +26,12 @@ applies database migrations first; the backend starts only after it succeeds:
 docker compose -f docker/compose.standalone.yml up --build -d
 ```
 
+The default workspace mount is the empty `workspaces/` folder. To browse your
+checkouts, set `KUSHEX_WORKSPACES_HOST_ROOT=/absolute/path/to/checkouts` before
+starting Compose. It is mounted read only; the backend cannot access files outside
+that root. Create a project in the UI by choosing one of its immediate subdirectories.
+See [projects and workspaces](docs/backend/05-projects-and-workspaces.md).
+
 Open <http://localhost:3050>. Backend liveness is <http://localhost:3050/api/health>
 and readiness (database and migrations) is <http://localhost:3050/api/health/ready>.
 The backend and PostgreSQL use the internal Docker network. Only the frontend

@@ -8,3 +8,7 @@ packages/server/src/generated/
 
 # local link to ../kushibot
 pnpm-workspace.local.yaml
+
+# Native development workspace mount
+/workspaces/*
+!/workspaces/.gitkeep

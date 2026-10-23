@@ -1,3 +1,6 @@
+import { NotFoundError } from "../../errors/NotFoundError.js";
+import { ForbiddenError } from "../../errors/ForbiddenError.js";
+import { PayloadTooLargeError } from "../../errors/PayloadTooLargeError.js";
 import type { FastifyReply, FastifyRequest } from "fastify";
 import type { Logger } from "../../shared/application/Logger.js";
 import { type ApiErrorBody, HttpError } from "../../errors/HttpError.js";
@@ -16,6 +19,17 @@ export class ErrorResponder {
   constructor(private readonly logger: Logger) {}
 
   respond(error: unknown, request: FastifyRequest, reply: FastifyReply): FastifyReply {
+    reply.header("Cache-Control", "no-store");
+    if (error instanceof NotFoundError)
+      return this.send(reply, 404, { code: "NOT_FOUND", message: error.message });
+    if (error instanceof ForbiddenError)
+      return this.send(reply, 403, { code: "FORBIDDEN", message: error.message });
+    if (error instanceof PayloadTooLargeError)
+      return this.send(reply, 413, {
+        code: "PAYLOAD_TOO_LARGE",
+        message: error.message,
+        details: [{ size: error.size, maxBytes: error.maxBytes }],
+      });
     if (error instanceof HttpError) {
       return this.send(reply, error.statusCode, error.toBody(), error.headers);
     }

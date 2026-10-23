@@ -1,3 +1,4 @@
+import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { ConfigurationError } from "../errors/ConfigurationError.js";
 import { ServerConfigLoader } from "./ServerConfigLoader.js";
@@ -11,6 +12,13 @@ describe("ServerConfigLoader", () => {
     expect(loader.load({ DATABASE_URL: databaseUrl })).toEqual({
       http: { host: "127.0.0.1", port: 3000 },
       database: { url: databaseUrl, maxConnections: 10, connectionTimeoutMs: 5000 },
+      workspacesRoot: path.resolve("workspaces"),
+      allowedOrigins: [
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:3050",
+        "http://127.0.0.1:3050",
+      ],
       shutdownTimeoutMs: 10_000,
       logLevel: "info",
     });
@@ -51,4 +59,17 @@ describe("ServerConfigLoader", () => {
   it("rejects non-integer ports", () => {
     expect(() => loader.load({ DATABASE_URL: databaseUrl, PORT: "abc" })).toThrow(/PORT/);
   });
+});
+
+it("rejects relative workspace roots and malformed browser origins", () => {
+  const loader = new ServerConfigLoader();
+  expect(() =>
+    loader.load({ DATABASE_URL: databaseUrl, KUSHEX_WORKSPACES_ROOT: "../checkouts" }),
+  ).toThrow(/KUSHEX_WORKSPACES_ROOT/);
+  expect(() =>
+    loader.load({
+      DATABASE_URL: databaseUrl,
+      KUSHEX_ALLOWED_ORIGINS: "http://localhost:5173/path",
+    }),
+  ).toThrow(/KUSHEX_ALLOWED_ORIGINS/);
 });

@@ -1,10 +1,11 @@
 import { combineSlices, configureStore } from "@reduxjs/toolkit";
+import { kushexApi } from "../shared/api/kushexApi";
 import { settingsSlice } from "../features/settings/settingsSlice";
 import { workbenchSlice } from "../features/workbench/workbenchSlice";
 import { createListeners } from "./listenerMiddleware";
 import type { StoreOptions } from "./storeOptions";
 
-const rootReducer = combineSlices(settingsSlice, workbenchSlice);
+const rootReducer = combineSlices(settingsSlice, workbenchSlice, kushexApi);
 
 export type RootState = ReturnType<typeof rootReducer>;
 
@@ -16,7 +17,10 @@ export function makeStore({ preloadedState, ...options }: MakeStoreOptions) {
   return configureStore({
     reducer: rootReducer,
     preloadedState,
-    middleware: (getDefault) => getDefault({ thunk: { extraArgument: options } }).prepend(listeners.middleware),
+    middleware: (getDefault) =>
+      getDefault({ thunk: { extraArgument: options } })
+        .prepend(listeners.middleware)
+        .concat(kushexApi.middleware),
   });
 }
 

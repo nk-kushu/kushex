@@ -1,3 +1,19 @@
+import {
+  ProjectService,
+  PrismaProjectRepository,
+  ProjectsController,
+} from "../modules/projects/public.js";
+import {
+  WorkspaceService,
+  WorkspacePathResolver,
+  LocalWorkspaceFileSystem,
+  PrismaWorkspaceRepository,
+  LocationsController,
+} from "../modules/workspaces/public.js";
+import { FileService, FilesController } from "../modules/files/public.js";
+import { RequestContextFactory } from "../transport/http/RequestContextFactory.js";
+import { LocalOperatorActorResolver } from "../transport/http/LocalOperatorActorResolver.js";
+import { LocalRequestGuard } from "../transport/http/LocalRequestGuard.js";
 import { fileURLToPath } from "node:url";
 import { type Logger as PinoLogger, pino } from "pino";
 import type { ServerConfig } from "../config/ServerConfig.js";
@@ -37,9 +53,28 @@ export class ApplicationFactory {
       READINESS_TIMEOUT_MS,
       this.logger,
     );
-    const http = new HttpServer(this.config.http, this.logger, new ErrorResponder(this.logger), [
-      new HealthController(readiness),
-    ]);
+    const contexts = new RequestContextFactory(new LocalOperatorActorResolver());
+    const filesystem = new LocalWorkspaceFileSystem(
+      new WorkspacePathResolver(this.config.workspacesRoot),
+    );
+    const workspaces = new WorkspaceService(
+      new PrismaWorkspaceRepository(database.client),
+      filesystem,
+    );
+    const projects = new ProjectService(new PrismaProjectRepository(database.client), workspaces);
+    const files = new FileService(workspaces, filesystem);
+    const http = new HttpServer(
+      this.config.http,
+      this.logger,
+      new ErrorResponder(this.logger),
+      [
+        new HealthController(readiness),
+        new LocationsController(workspaces, contexts),
+        new ProjectsController(projects, contexts),
+        new FilesController(files, contexts),
+      ],
+      new LocalRequestGuard(this.config.allowedOrigins),
+    );
     return new Application([database, http], this.config.shutdownTimeoutMs, this.logger);
   }
 }

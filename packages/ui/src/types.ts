@@ -6,6 +6,8 @@ export type ColorMode = "light" | "dark" | "system";
 export type KushexPanelOptions = Readonly<{
   /** Overrides the stored preference while set; changing it switches the theme live. */
   colorMode?: ColorMode;
+  /** Same-origin API prefix. Cross-origin deployments require authentication first. */
+  apiBaseUrl?: string;
   /** Keys persisted preferences; give each panel on a page its own id. Default "default". */
   instanceId?: string;
   /** Where antd and antd-style inject CSS (a ShadowRoot when embedded). Default: document.head. */

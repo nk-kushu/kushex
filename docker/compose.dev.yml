@@ -26,6 +26,7 @@ services:
       - ../apps/standalone/index.html:/app/apps/standalone/index.html
       - ../apps/standalone/vite.config.ts:/app/apps/standalone/vite.config.ts
       - ../packages/ui/src:/app/packages/ui/src
+      - ../packages/contracts/src:/app/packages/contracts/src
 
   migrate:
     build:
@@ -45,6 +46,7 @@ services:
       NODE_ENV: development
     volumes:
       - ../packages/server/src:/app/packages/server/src
+      - ../packages/contracts/src:/app/packages/contracts/src
       - ../packages/server/prisma:/app/packages/server/prisma
       - ../packages/server/prisma.config.ts:/app/packages/server/prisma.config.ts
       - ../packages/server/tsconfig.json:/app/packages/server/tsconfig.json

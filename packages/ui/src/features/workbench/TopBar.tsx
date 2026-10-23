@@ -1,3 +1,4 @@
+import { useProjectQuery, useProjectsQuery } from "../../shared/api/kushexApi";
 import { Avatar, Button, Input, Select, Tooltip, Typography } from "antd";
 import { IconMoon, IconSun, IconSunMoon } from "@tabler/icons-react";
 import { useAppDispatch, useAppSelector } from "../../app/hooks";
@@ -5,18 +6,30 @@ import { AppIcon } from "../../shared/components/AppIcon";
 import { SearchIcon, SettingsIcon, UserIcon } from "../../shared/lib/icons";
 import { borderB } from "../../shared/lib/styles";
 import { colorModeChanged, selectColorMode, type ColorMode } from "../settings/settingsSlice";
-import { activityChanged, projectOpened, selectProjectName } from "./workbenchSlice";
+import { activityChanged, projectOpened, selectProjectId } from "./workbenchSlice";
 
-const nextColorMode: Readonly<Record<ColorMode, ColorMode>> = { light: "dark", dark: "system", system: "light" };
+const nextColorMode: Readonly<Record<ColorMode, ColorMode>> = {
+  light: "dark",
+  dark: "system",
+  system: "light",
+};
 const colorModeIcon = { light: IconSun, dark: IconMoon, system: IconSunMoon } as const;
 
 export function TopBar({ compact }: Readonly<{ compact?: boolean }>) {
   const dispatch = useAppDispatch();
-  const project = useAppSelector(selectProjectName);
+  const project = useAppSelector(selectProjectId);
+  const projects = useProjectsQuery(0);
+  const selected = useProjectQuery(project ?? "", { skip: !project });
+  const choices = [...(projects.data?.entries ?? [])];
+  const selectedProject = selected.data;
+  if (selectedProject && !choices.some((entry) => entry.id === selectedProject.id))
+    choices.push(selectedProject);
   const colorMode = useAppSelector(selectColorMode);
 
   return (
-    <header className={`kx:flex kx:h-12 kx:shrink-0 kx:items-center kx:gap-3 kx:bg-surface kx:px-3 ${borderB}`}>
+    <header
+      className={`kx:flex kx:h-12 kx:shrink-0 kx:items-center kx:gap-3 kx:bg-surface kx:px-3 ${borderB}`}
+    >
       <Typography.Text strong className="kx:shrink-0">
         Kushex
       </Typography.Text>
@@ -26,7 +39,7 @@ export function TopBar({ compact }: Readonly<{ compact?: boolean }>) {
         placeholder="Project"
         value={project ?? undefined}
         onChange={(name: string) => dispatch(projectOpened(name))}
-        options={["Project one", "Project two", "Project three"].map((name) => ({ value: name, label: name }))}
+        options={choices.map((project) => ({ value: project.id, label: project.name }))}
         className="kx:w-44"
       />
       {!compact && (
@@ -46,7 +59,11 @@ export function TopBar({ compact }: Readonly<{ compact?: boolean }>) {
             icon={<AppIcon icon={colorModeIcon[colorMode]} label={`Color mode: ${colorMode}`} />}
           />
         </Tooltip>
-        <Button type="text" onClick={() => dispatch(activityChanged("settings"))} icon={<AppIcon icon={SettingsIcon} label="Settings" />} />
+        <Button
+          type="text"
+          onClick={() => dispatch(activityChanged("settings"))}
+          icon={<AppIcon icon={SettingsIcon} label="Settings" />}
+        />
         <Avatar size="small" icon={<AppIcon icon={UserIcon} size="sm" />} />
       </div>
     </header>

@@ -5,11 +5,16 @@ export type Activity = "projects" | "files" | "tasks" | "notes" | "settings";
 /** Narrow screens show one region at a time. */
 export type MobileView = "side" | "main" | "chat";
 
-export type FileTab = Readonly<{ key: string; title: string; kind: "file" | "diff" }>;
+export type FileTab = Readonly<{
+  key: string;
+  title: string;
+  path?: string;
+  kind: "file" | "diff";
+}>;
 
 type WorkbenchState = {
   activity: Activity;
-  projectName: string | null;
+  projectId: string | null;
   fileTabs: FileTab[];
   activeFileTab: string | null;
   mobileView: MobileView;
@@ -17,12 +22,9 @@ type WorkbenchState = {
 
 const initialState: WorkbenchState = {
   activity: "projects",
-  projectName: null,
-  fileTabs: [
-    { key: "file:file.ts", title: "file.ts", kind: "file" },
-    { key: "file:other.ts", title: "other.ts", kind: "file" },
-  ],
-  activeFileTab: "file:file.ts",
+  projectId: null,
+  fileTabs: [],
+  activeFileTab: null,
   mobileView: "main",
 };
 
@@ -34,11 +36,17 @@ export const workbenchSlice = createSlice({
       state.activity = action.payload;
     },
     projectOpened(state, action: PayloadAction<string>) {
-      state.projectName = action.payload;
+      if (state.projectId !== action.payload) {
+        state.fileTabs = [];
+        state.activeFileTab = null;
+      }
+      state.projectId = action.payload;
+      state.mobileView = "side";
       state.activity = "files";
     },
     fileTabOpened(state, action: PayloadAction<FileTab>) {
-      if (!state.fileTabs.some((tab) => tab.key === action.payload.key)) state.fileTabs.push(action.payload);
+      if (!state.fileTabs.some((tab) => tab.key === action.payload.key))
+        state.fileTabs.push(action.payload);
       state.activeFileTab = action.payload.key;
       state.activity = "files";
       state.mobileView = "main";
@@ -59,12 +67,25 @@ export const workbenchSlice = createSlice({
   },
   selectors: {
     selectActivity: (state) => state.activity,
-    selectProjectName: (state) => state.projectName,
+    selectProjectId: (state) => state.projectId,
     selectFileTabs: (state) => state.fileTabs,
     selectActiveFileTab: (state) => state.activeFileTab,
     selectMobileView: (state) => state.mobileView,
   },
 });
 
-export const { activityChanged, projectOpened, fileTabOpened, fileTabActivated, fileTabClosed, mobileViewChanged } = workbenchSlice.actions;
-export const { selectActivity, selectProjectName, selectFileTabs, selectActiveFileTab, selectMobileView } = workbenchSlice.selectors;
+export const {
+  activityChanged,
+  projectOpened,
+  fileTabOpened,
+  fileTabActivated,
+  fileTabClosed,
+  mobileViewChanged,
+} = workbenchSlice.actions;
+export const {
+  selectActivity,
+  selectProjectId,
+  selectFileTabs,
+  selectActiveFileTab,
+  selectMobileView,
+} = workbenchSlice.selectors;

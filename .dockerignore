@@ -10,3 +10,6 @@
 pnpm-workspace.local.yaml
 *.tsbuildinfo
 .DS_Store
+
+# Checkouts are mounted at runtime, never copied into an image.
+/workspaces

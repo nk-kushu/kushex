@@ -39,6 +39,15 @@ services:
       HOST: 0.0.0.0
       PORT: "3000"
       DATABASE_URL: *database-url
+      KUSHEX_WORKSPACES_ROOT: /workspaces
+      KUSHEX_ALLOWED_ORIGINS: http://localhost:3050,http://127.0.0.1:3050
+    volumes:
+      - type: bind
+        source: ${KUSHEX_WORKSPACES_HOST_ROOT:-../workspaces}
+        target: /workspaces
+        read_only: true
+        bind:
+          create_host_path: false
     depends_on:
       postgres:
         condition: service_healthy

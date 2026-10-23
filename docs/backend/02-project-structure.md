@@ -162,7 +162,7 @@ execution store that [01-overview](01-overview.md) rules out.
 
 Two different things are called "workspace". Do not merge them.
 
-- **Kushex `Workspace`** is the real project checkout: registration, allowed root,
+- **Kushex `Workspace`** is the real project checkout: registration, a relative checkout path under the deployment-wide allowed root,
   branch/revision metadata, and host access. Kushex owns `WorkspaceRepository`,
   `WorkspaceFileSystem` (real tree and file reads), and `WorkspaceGit`. Kushibot
   provides none of this.

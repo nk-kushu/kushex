@@ -1,26 +1,43 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { mockKushexApi } from "../../test/mockApi";
 import { KushexPanel } from "../../KushexPanel";
+
+beforeEach(() => {
+  mockKushexApi();
+});
 
 describe("Workbench", () => {
   it("opens a project into Files with the side view, editor and chat", async () => {
     const user = userEvent.setup();
     render(<KushexPanel />);
-    await user.click(screen.getByRole("button", { name: "Open Project one" }));
+    await user.click(await screen.findByRole("button", { name: "Open Project one" }));
 
     expect(screen.getByText("Files")).toBeInTheDocument();
-    expect(screen.getByRole("region", { name: "file.ts editor" })).toBeInTheDocument();
+    expect(screen.getByText("Open a file from the tree")).toBeInTheDocument();
+    await user.dblClick(await screen.findByText("src"));
+    await user.click(await screen.findByText("index.ts"));
+    expect(await screen.findByLabelText("src/index.ts contents")).toHaveTextContent(
+      "export const answer = 42;",
+    );
+    expect(screen.getByLabelText("src/index.ts contents")).not.toHaveAttribute(
+      "contenteditable",
+      "true",
+    );
     expect(screen.getByRole("complementary", { name: "Chat" })).toBeInTheDocument();
-    expect(screen.getByRole("status")).toHaveTextContent("Project one · main");
+    expect(screen.getByRole("status")).toHaveTextContent("Project one · alpha");
   });
 
   it("opens a diff tab from the chat changes card", async () => {
     const user = userEvent.setup();
     render(<KushexPanel />);
-    await user.click(screen.getByRole("button", { name: "Open Project one" }));
+    await user.click(await screen.findByRole("button", { name: "Open Project one" }));
     await user.click(screen.getByRole("button", { name: "Review" }));
 
-    expect(screen.getByRole("tab", { name: /Δ file\.ts/ })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("tab", { name: /Δ file\.ts/ })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
     expect(screen.getByRole("button", { name: "Accept" })).toBeInTheDocument();
   });
 
@@ -58,4 +75,31 @@ describe("Workbench on a narrow screen", () => {
     expect(screen.getByRole("complementary", { name: "Chat" })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Projects" })).not.toBeInTheDocument();
   });
+});
+
+it("shows binary and oversized previews and refreshes changed text", async () => {
+  const api = mockKushexApi();
+  const user = userEvent.setup();
+  render(<KushexPanel />);
+  await user.click(await screen.findByRole("button", { name: "Open Project one" }));
+  await user.click(await screen.findByText("image.bin"));
+  expect(await screen.findByText("Binary file — preview unavailable")).toBeInTheDocument();
+  await user.click(screen.getByText("large.txt"));
+  expect(await screen.findByText("File is too large to preview")).toBeInTheDocument();
+  await user.dblClick(screen.getByText("src"));
+  await user.click(await screen.findByText("index.ts"));
+  expect(await screen.findByLabelText("src/index.ts contents")).toHaveTextContent(
+    "export const answer = 42;",
+  );
+  api.files["src/index.ts"] = {
+    path: "src/index.ts",
+    kind: "text",
+    content: "changed on disk",
+    size: 15,
+  };
+  const viewer = screen.getByRole("region", { name: "src/index.ts viewer" });
+  await user.click(within(viewer).getByRole("button", { name: "Refresh file" }));
+  await waitFor(() =>
+    expect(screen.getByLabelText("src/index.ts contents")).toHaveTextContent("changed on disk"),
+  );
 });

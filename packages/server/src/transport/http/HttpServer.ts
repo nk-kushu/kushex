@@ -12,6 +12,8 @@ import type { ErrorResponder } from "./ErrorResponder.js";
 import type { HttpController } from "./HttpController.js";
 import { RequestValidationError } from "../../errors/RequestValidationError.js";
 
+import type { LocalRequestGuard } from "./LocalRequestGuard.js";
+
 export type HttpServerOptions = Readonly<{ host: string; port: number }>;
 
 /**
@@ -28,6 +30,7 @@ export class HttpServer implements ManagedResource {
     logger: FastifyBaseLogger,
     errorResponder: ErrorResponder,
     controllers: readonly HttpController[],
+    guard?: LocalRequestGuard,
   ) {
     this.app = fastify({
       loggerInstance: logger,
@@ -41,6 +44,7 @@ export class HttpServer implements ManagedResource {
     this.app.setNotFoundHandler((request, reply) => errorResponder.respondNotFound(request, reply));
     this.app.addHook("onRequest", async (request, reply) => {
       reply.header("X-Request-Id", request.id);
+      guard?.check(request);
     });
     for (const controller of controllers) {
       controller.register(this.app);

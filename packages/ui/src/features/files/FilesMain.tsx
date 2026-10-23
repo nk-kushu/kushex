@@ -2,14 +2,21 @@ import { Splitter } from "antd";
 import { FillTabs } from "../../shared/components/FillTabs";
 import { useAppDispatch, useAppSelector } from "../../app/hooks";
 import { EmptyMain } from "../workbench/EmptyMain";
-import { fileTabActivated, fileTabClosed, selectActiveFileTab, selectFileTabs } from "../workbench/workbenchSlice";
+import {
+  fileTabActivated,
+  fileTabClosed,
+  selectActiveFileTab,
+  selectFileTabs,
+  selectProjectId,
+} from "../workbench/workbenchSlice";
 import { BottomPanel } from "./BottomPanel";
-import { CodePlaceholder } from "./CodePlaceholder";
+import { FileViewer } from "./FileViewer";
 import { DiffView } from "./DiffView";
 
 export function FilesMain() {
   const dispatch = useAppDispatch();
   const tabs = useAppSelector(selectFileTabs);
+  const projectId = useAppSelector(selectProjectId);
   const active = useAppSelector(selectActiveFileTab);
 
   return (
@@ -30,7 +37,14 @@ export function FilesMain() {
             items={tabs.map((tab) => ({
               key: tab.key,
               label: tab.kind === "diff" ? `Δ ${tab.title}` : tab.title,
-              children: tab.kind === "diff" ? <DiffView title={tab.title} /> : <CodePlaceholder label={`${tab.title} editor`} />,
+              children:
+                tab.kind === "diff" ? (
+                  <DiffView title={tab.title} />
+                ) : projectId && tab.path ? (
+                  <FileViewer projectId={projectId} path={tab.path} />
+                ) : (
+                  <EmptyMain text="Open a file from the tree" />
+                ),
             }))}
           />
         )}

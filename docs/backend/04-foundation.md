@@ -2,8 +2,8 @@
 
 Status: **implemented** (phase 1 of the [implementation plan](03-implementation-plan.md)).
 Records the decisions behind the server foundation and the contracts later phases
-build on. Actor and workspace sections are decisions for phases 2–4; they are not
-implemented yet.
+build on. Actor and read-only workspace access are implemented in
+[projects and workspaces](05-projects-and-workspaces.md); editing remains a later phase.
 
 ## Tooling
 
@@ -67,7 +67,7 @@ Migrations are an explicit deployment step, never run by the server or request h
   migrations make it fail. A failed migration needs `prisma migrate resolve`.
 - The production image includes the `prisma` CLI, `prisma/` and `prisma.config.ts`,
   because the `migrate` service runs from the backend image.
-- No application models exist yet; the first migration arrives with projects (phase 2).
+- Project and Workspace models and the first migration are implemented in [phase 2](05-projects-and-workspaces.md).
 
 ## Health contract
 
@@ -115,22 +115,22 @@ the first feature that raises them, mapping application errors to these codes.
 
 Blank values count as unset.
 
-## Actor and authentication model (decision)
+## Actor and authentication model
 
 The initial deployment model is **one local operator on a single machine**:
 
 - There is no login. Every request acts as one fixed actor, the _local operator_.
   The trust boundary is the host. Compose publishes only the frontend, on
   `127.0.0.1:3050`; the backend and PostgreSQL stay on the internal network.
-- With the first actor-scoped feature (phase 2), add `RequestContext` with an
-  `Actor` from an `ActorResolver` interface. The first implementation,
-  `LocalOperatorActorResolver`, returns the fixed operator. Services receive the
+- Phase 2 adds `RequestContext` with an
+  `Actor` from an `ActorResolver` interface.
+  `LocalOperatorActorResolver` returns the fixed operator. Services receive the
   actor explicitly, so real authentication later replaces only the resolver.
 - Kushibot scope mapping: one scope for the local operator, with `project_id` set to
   the Kushex project ID and `workspace_key` to the Kushex workspace ID.
 - Loopback is not a complete boundary. Any web page in the operator's browser can
   send requests to `localhost`. Before adding the first **state-changing** route,
-  add a transport guard. It rejects requests whose `Origin` is not the Kushex
+  the transport guard added in phase 2 is required. It rejects requests whose `Origin` is not the Kushex
   origin, and requests whose `Host` is not an expected local name (this protects
   against DNS rebinding). Mutating routes accept only `application/json`.
 - An Accept decision is the operator's action, recorded with this actor. That is
@@ -138,7 +138,7 @@ The initial deployment model is **one local operator on a single machine**:
 - Exposing Kushex beyond loopback, multi-user use, or embedding in a host on another
   origin all require real authentication first (see "Later decisions" in the plan).
 
-## Workspace provisioning (decision)
+## Workspace provisioning
 
 - Kushex **registers existing checkouts**. It does not clone repositories or hold Git
   credentials initially.

@@ -9,7 +9,12 @@ import { makeStore } from "./app/store";
 import { getAntdTheme } from "./app/theme";
 import { ThemeBridge } from "./app/ThemeBridge";
 import { Workbench } from "./features/workbench/Workbench";
-import { colorModeChanged, selectColorMode, selectDensity, toThemeMode } from "./features/settings/settingsSlice";
+import {
+  colorModeChanged,
+  selectColorMode,
+  selectDensity,
+  toThemeMode,
+} from "./features/settings/settingsSlice";
 import type { KushexPanelHandle, KushexPanelOptions } from "./types";
 
 type KushexPanelProps = KushexPanelOptions & Readonly<{ ref?: Ref<KushexPanelHandle> }>;
@@ -18,10 +23,20 @@ type KushexPanelProps = KushexPanelOptions & Readonly<{ ref?: Ref<KushexPanelHan
  * The Kushex panel. Store and theme are created per mounted instance, so several
  * panels (or tests) on one page never share state.
  */
-export function KushexPanel({ instanceId = "default", colorMode, ref, ...rest }: KushexPanelProps) {
+export function KushexPanel({
+  instanceId = "default",
+  apiBaseUrl,
+  colorMode,
+  ref,
+  ...rest
+}: KushexPanelProps) {
   const [store] = useState(() => {
     const settings = loadPreferences(instanceId);
-    return makeStore({ instanceId, preloadedState: { settings: colorMode ? { ...settings, colorMode } : settings } });
+    return makeStore({
+      instanceId,
+      apiBaseUrl,
+      preloadedState: { settings: colorMode ? { ...settings, colorMode } : settings },
+    });
   });
 
   // Host-controlled color mode wins over the stored preference while it is set.
@@ -29,7 +44,11 @@ export function KushexPanel({ instanceId = "default", colorMode, ref, ...rest }:
     if (colorMode) store.dispatch(colorModeChanged(colorMode));
   }, [colorMode, store]);
 
-  useImperativeHandle(ref, () => ({ setColorMode: (mode) => store.dispatch(colorModeChanged(mode)) }), [store]);
+  useImperativeHandle(
+    ref,
+    () => ({ setColorMode: (mode) => store.dispatch(colorModeChanged(mode)) }),
+    [store],
+  );
 
   return (
     <Provider store={store}>

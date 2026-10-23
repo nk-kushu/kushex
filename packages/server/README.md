@@ -12,6 +12,7 @@ repository README). To run it on the host against your own database:
 
 ```sh
 pnpm install
+export KUSHEX_WORKSPACES_ROOT=/absolute/path/to/checkouts
 export DATABASE_URL=postgresql://kushex:kushex_local@127.0.0.1:5432/kushex
 pnpm --filter @kushex/server migrate   # prisma migrate deploy (explicit step)
 pnpm --filter @kushex/server dev       # prisma generate, then tsx watch on :3000
@@ -28,6 +29,11 @@ variables are listed in the [foundation doc](../../docs/backend/04-foundation.md
 | `GET /health/ready` | Readiness: database reachable and migrations current; `503` otherwise |
 
 Errors use `{ "code", "message", "details"? }` bodies.
+
+Projects and read-only browsing: `GET /locations`, `POST /projects`,
+`GET /projects`, `GET /projects/:id`, `GET /projects/:id/tree?path=`, and
+`GET /projects/:id/file?path=`. See [projects and workspaces](../../docs/backend/05-projects-and-workspaces.md)
+for DTOs, pagination, preview limits, containment, and Origin/Host configuration.
 
 ## Prisma and migrations
 
