@@ -4,9 +4,10 @@ import { KushexPanel } from "./KushexPanel";
 import type { KushexPanelHandle } from "./types";
 
 describe("KushexPanel", () => {
-  it("shows the Kushex title", () => {
+  it("starts on the Projects screen", () => {
     render(<KushexPanel />);
-    expect(screen.getByRole("heading", { level: 1, name: "Kushex" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Projects" })).toBeInTheDocument();
+    expect(screen.getByRole("navigation", { name: "Activities" })).toBeInTheDocument();
   });
 
   it("switches color mode through the handle and persists it", async () => {

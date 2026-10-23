@@ -1,9 +1,10 @@
 import { combineSlices, configureStore } from "@reduxjs/toolkit";
 import { settingsSlice } from "../features/settings/settingsSlice";
+import { workbenchSlice } from "../features/workbench/workbenchSlice";
 import { createListeners } from "./listenerMiddleware";
 import type { StoreOptions } from "./storeOptions";
 
-const rootReducer = combineSlices(settingsSlice);
+const rootReducer = combineSlices(settingsSlice, workbenchSlice);
 
 export type RootState = ReturnType<typeof rootReducer>;
 

@@ -34,6 +34,7 @@
     "@ant-design/cssinjs": "^2.1.2",
     "@ant-design/icons": "^6.3.4",
     "@reduxjs/toolkit": "^2.13.0",
+    "@tabler/icons-react": "^3.49.0",
     "antd-style": "^4.1.0",
     "react-redux": "^9.3.0"
   },

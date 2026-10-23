@@ -6,6 +6,8 @@ The folder structure is a target, not a request to scaffold all modules at once.
 
 ## 1. Application foundation
 
+Status: **implemented**. See [04-foundation.md](04-foundation.md) for the decisions and contracts.
+
 - Refactor the procedural starter into `Application`, configuration, HTTP lifecycle,
   and a composition root, following the backend OOP skill.
 - Select routing/validation and PostgreSQL/migration tooling. Add a database adapter,

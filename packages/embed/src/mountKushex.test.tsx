@@ -19,11 +19,11 @@ afterEach(() => {
 });
 
 describe("mountKushex", () => {
-  it("renders the title inside a shadow root with its styles", () => {
+  it("renders the panel inside a shadow root with its styles", () => {
     const { el } = mount();
     expect(el.shadowRoot!.querySelector("style[data-kushex]")?.textContent).toContain("kx\\:flex");
-    expect(within(shadowOf(el)).getByRole("heading", { name: "Kushex" })).toBeInTheDocument();
-    expect(document.body.querySelector("h1")).toBeNull();
+    expect(within(shadowOf(el)).getByRole("heading", { name: "Projects" })).toBeInTheDocument();
+    expect(document.body.querySelector("h3")).toBeNull();
   });
 
   it("keeps two instances independent", async () => {

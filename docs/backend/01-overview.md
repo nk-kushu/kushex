@@ -5,22 +5,25 @@ Status: **proposal**, based on the current Kushex frontend and the sibling
 workbench: choose a project, discuss work with an agent, organize tasks, inspect
 files and proposed changes, and keep project notes.
 
-**Kushex is the application and host for Kushibot.** Reuse Kushibot's execution,
-workspace-editing, persistence, and publication capabilities through adapters.
+**Kushex is the application and host for Kushibot.** Reuse Kushibot's conversation,
+execution, workspace-editing, persistence, and publication capabilities through adapters.
 Backend modules expose application use cases and UI projections; they must not
 reimplement framework state machines or create competing execution stores.
 
 This overview refines the ownership assumptions in the initial
 [folder structure](02-project-structure.md) and [implementation plan](03-implementation-plan.md).
 Read their proposed execution/change classes as thin integration facades where
-Kushibot already owns the behavior. The concrete integration is still to be built.
+Kushibot already owns the behavior. Proposed `ThreadRepository`, `MessageRepository`,
+and PostgreSQL conversation repositories are superseded by Kushibot
+`IConversationStore`; do not implement parallel stores in Kushex. The concrete
+application integration is still to be built.
 
 ## What exists today
 
 | Frontend source | Current behavior | Backend capability needed |
 | --- | --- | --- |
 | `features/projects/ProjectsScreen.tsx` | Three hardcoded project cards; opening stores the name | Persistent projects with stable IDs and workspace references |
-| `features/chat/ChatPanel.tsx` | Placeholder thread selector, messages, steps, context chips, attachment buttons, and changes card | App conversations and context mapped to Kushibot sessions, events, and proposals |
+| `features/chat/ChatPanel.tsx` | Placeholder thread selector, messages, steps, context chips, attachment buttons, and changes card | Wire Kushibot conversation storage and map context to sessions, events, and proposals |
 | `features/tasks/TasksScreen.tsx` | Local board/list and task tabs; placeholder status, assignee, links, activity, and “Start with agent” | Project task board, relationships, activity, and commands that launch Kushibot work |
 | `features/files/FilesSide.tsx` and `FilesMain.tsx` | Static file tree and placeholder editor | Authorized project tree and file reads; mapping to isolated editing workspaces |
 | `features/files/DiffView.tsx` | Hardcoded before/after with Accept and Reject buttons | Kushibot proposal projections and trusted review/publication integration |
@@ -32,9 +35,10 @@ Kushibot already owns the behavior. The concrete integration is still to be buil
 
 `app/store.ts` currently registers settings and workbench slices. There is no
 implemented RTK Query API, chat transport, or server-backed feature data.
-`packages/server/src/index.ts` exposes `/health` and JSON errors only. Compose
-provides PostgreSQL and `DATABASE_URL`, but the server has no database client or
-Kushibot dependency wired into it yet.
+`packages/server` has the [application foundation](04-foundation.md): lifecycle,
+configuration, Prisma Client over PostgreSQL (schema `kushex`), Prisma Migrate as an
+explicit migration step, liveness/readiness endpoints and `{ code, message }` errors. It has
+no feature routes, application tables, or Kushibot dependency yet.
 
 The [harness wireframe](../harness-plan.md) reflects the current screen direction.
 Older [frontend API documentation](../frontend/08-api-contract.md) describes
@@ -54,6 +58,7 @@ for architectural evidence.
 | --- | --- | --- |
 | Execution identity and lifecycle | `ExecutionLifecycle`, workflow/step/session lifecycle definitions, [`WorkflowEngine`](../../../kushibot/src/workflows/WorkflowEngine.ts), `WorkflowRun`, `StepRunner` | Map app requests to registered workflows/executors and expose authoritative status |
 | Execution persistence and command identity | [`PostgresqlPersistenceFactory`](../../../kushibot/src/persistence/postgresql/PostgresqlPersistenceFactory.ts), `SqlExecutionRecordRepository`, `SqlWorkflowRunStore`; version checks and save-command receipts | Supply SQL driver binding, scope instances, initialization, app request receipts, and ID mappings |
+| Conversations | [`SqlConversationStore`](../../../kushibot/src/persistence/conversations/SqlConversationStore.ts), PostgreSQL/SQLite statement sets, `IConversationStore` | Supply SQL binding and scope, authorize access, map HTTP requests, and explicitly append user/assistant messages |
 | Agent sessions and tools | [`AgenticMindUnit`](../../../kushibot/src/agentic/sessions/AgenticMindUnit.ts), `AgenticSession`, `ToolDispatcher`, typed executor registrations, sub-agent coordination | Compose session factories, registered tools/executors, context/journal/acceptance adapters, and thread associations |
 | Model calls and routing | `OpenAiTextGateway`, `OpenAiHttpTransport`, gateway registry, budgeted calls and routing policies | Configure transport/credentials, profiles, policies, and permitted capabilities |
 | Context and memory | [`AgentContextComposer`](../../../kushibot/src/agentic/context/AgentContextComposer.ts), compression, source-validated memory services | Resolve authorized app notes/files/tasks as context and implement required source/acceptance adapters |
@@ -71,8 +76,12 @@ Important limits of the current implementation:
   their initialization. Do not rewrite those stores as app repositories.
 - **A session is not an app conversation.** `ISessionJournal` is a host contract;
   the agent session loop does not supply a ready-made durable chat-thread API.
-  Kushex owns conversational messages, user context selections, and their mapping
-  to sessions/runs, and supplies journal persistence where needed.
+  Conversation storage is now a separate Kushibot capability: `IConversationStore`
+  persists threads and ordered user/assistant messages, with pagination, optional
+  run/session links, and idempotent creation. Kushex owns the conversation UX, access
+  checks, selected context, and mapping to runs; it calls this store rather than
+  creating duplicate thread/message repositories. Hosts still supply session journal
+  persistence where needed; conversations are not captured automatically.
 - **The model gateway is non-streaming text today.** SSE can deliver completed
   messages, lifecycle events, steps, and diagnostics. Token-by-token model output
   needs an explicit framework/transport extension; it is not supplied by wrapping
@@ -101,6 +110,8 @@ flowchart LR
   UI[Standalone or embedded panel] --> HTTP[Kushex HTTP controllers]
   HTTP --> App[Projects, chat, tasks, notes and settings services]
   App --> DB[Kushex application tables]
+  App --> Conversations[Kushibot IConversationStore]
+  Conversations --> Stores[Kushibot SQL stores]
   App --> Bridge[Kushibot application adapter]
   Bridge --> Framework[Kushibot workflows, sessions and runtime]
   Framework --> Stores[Kushibot SQL stores]
@@ -128,7 +139,7 @@ and authentication support; current public panel options do not expose these yet
 | --- | --- | --- |
 | `projects` | Project catalog, name, description, access, stable identity | Map IDs to framework execution scope |
 | `workspaces` | Checkout registration, allowed root, branch/revision metadata, host Git/filesystem adapters | Isolated text workspaces and revision-checked editing |
-| `chat` | Conversation threads, user/assistant history, selected context and thread/run mapping | Agent sessions, context composition, tools and model execution |
+| `chat` | Conversation use cases, access checks, selected context and thread/run mapping | Durable threads/messages through `IConversationStore`, agent sessions, context, tools and model execution |
 | `executions` | Submit/cancel endpoints, app-command receipts, app-to-run associations and read projections | Lifecycle, attempts, run persistence, budgets, cancellation and recovery machinery |
 | `tasks` | Board states, descriptions, assignee references, links and task activity | Execute task work through registered workflows/executors |
 | `files` | Authorized project tree/content API and checkout source resolution | Reads/edits within supported isolated framework workspaces |
@@ -143,25 +154,69 @@ Task status (`backlog`, `in-progress`, `in-review`, `done`) is independent of
 framework lifecycle. Finishing an agent execution does not approve its changes
 or automatically finish the task.
 
-Kushex tables hold app entities, command receipts, ID associations, and any
-rebuildable UI projections. Framework stores remain authoritative for execution
-records, debug events, artifacts, usage, isolated editing state, and publication
-records. Do not create parallel authoritative copies. Use real project files as
-source input and publish approved changes through a host target adapter.
+Kushex tables hold app entities, launch-command receipts, ID associations, and
+any rebuildable UI projections. Kushibot stores remain authoritative for durable
+conversation threads/messages as well as execution records, debug events, artifacts,
+usage, isolated editing state, and publication records. Do not create parallel
+authoritative copies. Use real project files as source input and publish approved
+changes through a host target adapter.
+
+## Conversation storage integration
+
+Conversation persistence is implemented in the sibling Kushibot source; the Kushex
+backend and UI are not connected to it yet. See the
+[conversation storage guide](../../../kushibot/docs/conversations/README.md) for
+its supported contracts and real-driver acceptance commands.
+
+- Construct a `SqlConversationStore` with the host `ISqlDatabase`,
+  `postgresqlConversationStatements`, and the actor-authorized effective scope.
+  Initialize its tables during controlled startup. Inject `IConversationStore`
+  into `ChatService`; controllers must not depend on SQL statements or a concrete
+  database implementation.
+- Use `createThread`, `getThread`, and `listThreads` for the thread selector and
+  new-thread action. Use `appendMessage`, `getMessage`, and `listMessages` for
+  conversation history. IDs must be stable; display names are not identities.
+- History is ordered by a store-assigned sequence within each thread, with
+  `afterSequence` pagination. Thread lists use `afterThreadId`; both support limits
+  from 1 to 100. Keep the last observed sequence when polling an existing thread.
+- Reuse message/command IDs, exact content, creation timestamp, and optional
+  run/session IDs on retries. Identical appends return the stored message;
+  conflicting reuse returns `IDENTITY_CONFLICT`, which Kushex should map to HTTP
+  `409`. Appends are immutable; links supplied later require a separate app
+  association rather than rewriting an existing message.
+- Explicitly persist user messages and completed assistant responses. Kushibot
+  does not automatically copy session journals, tool observations, or model replies
+  into conversation history. Verify run/session ownership before linking them.
+  A conversation history read remains independent of execution diagnostics/SSE.
+- The current store supports user/assistant text and optional run/session IDs.
+  Selected context chips, attachments, launch intents, and task associations need
+  explicit app contracts; do not assume the store already persists those fields.
+
+Conversation persistence has passed the new SQLite and PostgreSQL acceptance
+suites, including ordering, paging, scope isolation, concurrent writes, rollback,
+and retry after a lost commit acknowledgement. This verifies the library store;
+Kushex still needs its own database binding, authenticated HTTP integration,
+message-to-execution reconciliation, and frontend integration checks.
 
 ## Coding chat flow
 
 1. The user selects a project/workspace and sends a message with optional context
-   references. Kushex validates actor access and stores app message/command identity
-   plus a durable launch intent in its own transaction.
+   references. Kushex validates actor access and saves the message through
+   `IConversationStore.appendMessage()` with stable message/command IDs. Record a
+   durable app launch intent linked to that message. The conversation store owns its
+   transaction, so reconcile the two writes; do not claim a single atomic operation
+   unless transaction participation is explicitly added.
 2. A Kushex dispatcher resolves that intent to stable Kushibot scope, run/session,
    and operation IDs. `KushibotAgentRuntime` starts registered work through the
    composed framework runtime and workflow/session facilities. Reconcile retries
    against those identities rather than starting another engine attempt blindly.
 3. Host context adapters resolve permitted files, notes, and tasks; Kushibot composes
    context and runs its session/tool/model logic. Keep the HTTP submission short.
-4. Kushex projects persisted framework diagnostics, lifecycle, and completed output
-   to the app thread and SSE. Do not claim token deltas from the non-streaming gateway.
+4. Kushex explicitly appends completed assistant responses to `IConversationStore`
+   with stable IDs and any known run/session links. Project framework diagnostics
+   and lifecycle separately into SSE. Reconcile failed response persistence rather
+   than assuming the session journal has saved a chat message. Do not claim token
+   deltas from the non-streaming gateway.
 5. Edits use a supported isolated workspace. Create a framework proposal tied to
    its baseline/digest and display it in the chat changes card and diff view.
 6. Kushex records the authenticated user's decision. Accepted publication goes
@@ -176,7 +231,8 @@ through the same integration. Browser disconnects do not cancel agent work.
 
 - Reuse framework record versions, workflow claims, and command receipts for the
   operations they cover. Add app-level idempotency for chat/task HTTP commands;
-  a framework save receipt does not deduplicate an entire app submission by itself.
+  `IConversationStore` deduplicates message appends within a thread, but that alone
+  does not deduplicate or atomically commit the associated workflow launch.
 - Sharing PostgreSQL does not make app writes and all framework effects one atomic
   operation. Use durable launch intent plus reconciliation; inspect transaction
   participation before promising atomic cross-store updates. Never hold a database

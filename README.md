@@ -19,15 +19,18 @@ pnpm build            # @kushex/ui (ESM + style.css + .d.ts), @kushex/embed (ESM
 
 ## Docker
 
-Start the frontend, compiled backend, and PostgreSQL:
+Start the frontend, compiled backend, and PostgreSQL. A one-shot `migrate` service
+applies database migrations first; the backend starts only after it succeeds:
 
 ```sh
 docker compose -f docker/compose.standalone.yml up --build -d
 ```
 
-Open <http://localhost:3050>. The backend health endpoint is available at
-<http://localhost:3050/api/health>. The backend and PostgreSQL use the internal
-Docker network; only the frontend publishes a host port.
+Open <http://localhost:3050>. Backend liveness is <http://localhost:3050/api/health>
+and readiness (database and migrations) is <http://localhost:3050/api/health/ready>.
+The backend and PostgreSQL use the internal Docker network. Only the frontend
+publishes a port, and only on `127.0.0.1`, because the API has no authentication
+yet (see [local deployment assumptions](docs/backend/04-foundation.md#local-deployment-assumptions)).
 Frontend API calls should use relative `/api/...` URLs; both Nginx and Vite forward
 these to the backend and remove the `/api` prefix.
 
@@ -46,7 +49,16 @@ Use the same Compose flags when stopping a mode or reading its logs.
 PostgreSQL 18 stores data in the `postgres-data` named volume and is reachable
 inside Compose at `postgres:5432`. The backend receives
 `DATABASE_URL=postgresql://kushex:kushex_local@postgres:5432/kushex`.
-The starter does not yet include a database client, queries, or migrations.
+The schema lives in `packages/server/prisma/` (Prisma Migrate). In development mode,
+create a migration in the running backend container, then apply it without
+restarting the stack:
+
+```sh
+docker compose -f docker/compose.standalone.yml -f docker/compose.dev.yml exec backend \
+  pnpm --filter @kushex/server migrate:create --name <change>
+docker compose -f docker/compose.standalone.yml -f docker/compose.dev.yml run --rm migrate
+```
+
 The default credentials are for local use; set `POSTGRES_PASSWORD` before startup
 to override the password (use a URL-safe value for the connection URL).
 Changing the variable does not change the password of an already initialized database.

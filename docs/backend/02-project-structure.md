@@ -12,19 +12,26 @@ packages/server/
 ├── AGENTS.md
 ├── package.json
 ├── tsconfig.json
-├── migrations/                    # Ordered PostgreSQL schema changes
+├── prisma.config.ts               # Prisma CLI config (schema path, `kushex` schema URL)
+├── prisma/
+│   ├── schema.prisma              # Kushex models
+│   └── migrations/                # Prisma Migrate history
 ├── src/
-│   ├── index.ts                   # Construct application, start, delegate signals
+│   ├── generated/prisma/          # Prisma Client output (gitignored)
+│   ├── index.ts                   # Hand the server command to ProcessHost
 │   ├── app/
 │   │   ├── Application.ts         # Own startup/shutdown and resource lifecycle
-│   │   └── ApplicationFactory.ts  # Wire concrete collaborators; composition root
+│   │   ├── ApplicationFactory.ts  # Wire concrete collaborators; composition root
+│   │   ├── ProcessHost.ts         # Config load, signals, exit codes
+│   │   └── health/                # ReadinessProbe and ReadinessCheck contract
 │   ├── config/
 │   │   └── ServerConfig.ts        # Parse and validate environment once
 │   ├── transport/
 │   │   ├── http/
-│   │   │   ├── HttpServer.ts      # HTTP server lifecycle, route registration
-│   │   │   ├── Router.ts          # Route matching / chosen router wrapper
-│   │   │   ├── RequestContext.ts  # Actor, scope, request/correlation ID
+│   │   │   ├── HttpServer.ts      # Fastify lifecycle, Zod validation, controller registration
+│   │   │   ├── HttpController.ts  # Route-group contract
+│   │   │   ├── HttpError.ts       # Transport errors with a known response
+│   │   │   ├── RequestContext.ts  # Actor, scope, request/correlation ID (phase 2)
 │   │   │   ├── ErrorResponder.ts  # Domain/application errors -> HTTP responses
 │   │   │   └── HealthController.ts
 │   │   └── sse/
@@ -41,20 +48,19 @@ packages/server/
 │   │   └── settings/
 │   ├── infrastructure/
 │   │   ├── database/
-│   │   │   ├── PostgresDatabase.ts  # Connection pool and transaction sessions
-│   │   │   └── PostgresTransactionManager.ts
+│   │   │   ├── PrismaDatabase.ts    # PrismaClient + pg pool lifecycle
+│   │   │   ├── DatabaseReadinessCheck.ts
+│   │   │   └── PrismaMigrationReadinessCheck.ts
 │   │   ├── agent/
 │   │   │   └── <Runtime>AgentRuntime.ts # Chosen runtime, not a decided provider
 │   │   ├── workspace/
 │   │   │   ├── LocalWorkspaceFileSystem.ts
 │   │   │   └── GitWorkspaceAdapter.ts
-│   │   └── logging/
-│   │       └── ConsoleLogger.ts
 │   └── shared/
 │       ├── application/
 │       │   ├── Clock.ts           # Contract, where deterministic time is needed
-│       │   ├── Logger.ts          # Contract for structured logging
-│       │   └── TransactionManager.ts
+│       │   ├── Logger.ts          # Contract for structured logging (pino supplied)
+│       │   └── ManagedResource.ts # Start/stop contract owned by Application
 │       └── domain/
 │           ├── DomainError.ts
 │           └── EntityId.ts        # Only if ID rules warrant a shared abstraction
@@ -112,7 +118,7 @@ application ports. Keep domain-specific ports with their owning feature, not in
 | Projects | `Project`, `ProjectService`, `ProjectRepository`, `PostgresProjectRepository`, `ProjectsController` |
 | Workspaces | `Workspace`, `WorkspaceService`, `WorkspaceRepository`, `WorkspaceFileSystem`, `WorkspaceGit` |
 | Chat | `Thread`, `Message`, `ChatService`, context resolver, message/thread repositories, `ChatController` |
-| Executions | `Execution`, `ExecutionService`, `ExecutionDispatcher`, `AgentRuntime`, execution/event repositories, `ExecutionsController` |
+| Executions | `ExecutionService`, `ExecutionDispatcher`, `AgentRuntime` (port), `KushibotAgentRuntime`, run-association/command-receipt repository, `ExecutionsController`. Kushibot owns execution state and events; do not add an `Execution` entity or execution/event repositories (see [01-overview](01-overview.md)) |
 | Tasks | `Task`, `TaskService`, `StartTaskWithAgentService`, task/activity repositories, `TasksController` |
 | Files | `FileService`, `FilesController`; use workspace ports for physical file access |
 | Changes | `ChangeProposal`, `ChangeService`, `ChangeProposalRepository`, `ChangesController` |
@@ -125,6 +131,52 @@ when it has independent dependencies or coordination responsibilities. Do not
 introduce abstract base controllers, universal entity managers, or a generic
 repository that hides feature-specific operations.
 
+## Executions: what Kushex writes and reads
+
+Kushex does not write execution state. It sends commands, and Kushibot changes
+the state.
+
+**Kushex writes:**
+
+- Commands into Kushibot through `KushibotAgentRuntime`: submit and cancel go
+  through `ExecutionDispatcher`. Kushibot creates and updates the run, session,
+  and lifecycle records itself.
+- Its own app data: the run-association and command-receipt repository (message
+  or task to run ID, so retries do not start duplicate work), plus projects,
+  tasks, settings, notes, and change proposals.
+- Conversation messages, appended explicitly through Kushibot's conversation
+  store (`IConversationStore`).
+
+**Kushex reads:**
+
+- Execution status, lifecycle, and outcome, exposed as read projections. Kushibot
+  is the authority on run state.
+- Events, normalized for the `ExecutionEventStream` (SSE) sent to the browser.
+- Artifacts and usage.
+
+Kushex never updates an execution record, edits a lifecycle, or inserts execution
+events directly. Keeping its own copy of run state would create the competing
+execution store that [01-overview](01-overview.md) rules out.
+
+## Workspaces: Kushex checkout versus Kushibot edit workspace
+
+Two different things are called "workspace". Do not merge them.
+
+- **Kushex `Workspace`** is the real project checkout: registration, allowed root,
+  branch/revision metadata, and host access. Kushex owns `WorkspaceRepository`,
+  `WorkspaceFileSystem` (real tree and file reads), and `WorkspaceGit`. Kushibot
+  provides none of this.
+- **Kushibot workspace** is an isolated, database-backed copy of selected text
+  files that the agent edits safely (`SqlTextWorkspaceProvider`,
+  `SqlWorkspaceFiles`, `SqlWorkspaceEditGate`). It is bounded to 256 files, 64 KiB
+  per file, and 1 MiB total, and edits are revision-checked so stale writes are
+  rejected. It never touches the real disk or Git. In Kushex docs, call it the
+  "isolated edit workspace" to avoid confusion.
+
+Flow: Kushex seeds selected files from the real checkout into an isolated edit
+workspace, the agent edits that copy, and Kushex applies the accepted result to
+the real checkout after review and approval.
+
 ## Dependency rules
 
 1. Domain objects contain business rules and depend on no HTTP, database, or agent
@@ -136,8 +188,9 @@ repository that hides feature-specific operations.
 3. Controllers translate validated transport data to use cases and map results
    back to DTOs. They contain no SQL, agent orchestration, or patch application.
 4. Infrastructure implements application ports and maps persisted/provider data
-   into application/domain types. Transactions pass an explicit transaction session
-   so repositories participating in one operation share the same database transaction.
+   into application/domain types. Transactions pass an explicit
+   `Prisma.TransactionClient` from `$transaction()` so repositories participating in
+   one operation share the same database transaction.
 5. `ApplicationFactory` selects implementations and wires dependencies. The
    application owns startup order and reverse-order shutdown, including execution
    cancellation/reconciliation policy, streams, HTTP, and database connections.

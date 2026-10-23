@@ -35,3 +35,4 @@ see the backend overview for the current implementation baseline.
 | [backend/01-overview.md](backend/01-overview.md) | Frontend requirements, module boundaries, and coding chat flow |
 | [backend/02-project-structure.md](backend/02-project-structure.md) | Proposed backend folders, OOP responsibilities, and polymorphic contracts |
 | [backend/03-implementation-plan.md](backend/03-implementation-plan.md) | Delivery phases and acceptance criteria |
+| [backend/04-foundation.md](backend/04-foundation.md) | Implemented server foundation and phase 1 decisions |

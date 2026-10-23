@@ -27,6 +27,16 @@ services:
       - ../apps/standalone/vite.config.ts:/app/apps/standalone/vite.config.ts
       - ../packages/ui/src:/app/packages/ui/src
 
+  migrate:
+    build:
+      target: development
+    command: ["pnpm", "--filter", "@kushex/server", "migrate"]
+    environment:
+      NODE_ENV: development
+    volumes:
+      - ../packages/server/prisma:/app/packages/server/prisma
+      - ../packages/server/prisma.config.ts:/app/packages/server/prisma.config.ts
+
   backend:
     build:
       target: development
@@ -35,4 +45,6 @@ services:
       NODE_ENV: development
     volumes:
       - ../packages/server/src:/app/packages/server/src
+      - ../packages/server/prisma:/app/packages/server/prisma
+      - ../packages/server/prisma.config.ts:/app/packages/server/prisma.config.ts
       - ../packages/server/tsconfig.json:/app/packages/server/tsconfig.json

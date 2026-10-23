@@ -3,12 +3,12 @@ import { App as AntApp, ConfigProvider } from "antd";
 import { StyleProvider, ThemeProvider } from "antd-style";
 import { useEffect, useImperativeHandle, useRef, useState, type ReactNode, type Ref } from "react";
 import { Provider } from "react-redux";
-import { HomePage } from "./app/HomePage";
 import { useAppSelector } from "./app/hooks";
 import { loadPreferences } from "./app/preferences";
 import { makeStore } from "./app/store";
 import { getAntdTheme } from "./app/theme";
 import { ThemeBridge } from "./app/ThemeBridge";
+import { Workbench } from "./features/workbench/Workbench";
 import { colorModeChanged, selectColorMode, selectDensity, toThemeMode } from "./features/settings/settingsSlice";
 import type { KushexPanelHandle, KushexPanelOptions } from "./types";
 
@@ -34,7 +34,7 @@ export function KushexPanel({ instanceId = "default", colorMode, ref, ...rest }:
   return (
     <Provider store={store}>
       <ThemedPanel {...rest}>
-        <HomePage />
+        <Workbench />
       </ThemedPanel>
     </Provider>
   );

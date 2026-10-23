@@ -1,5 +1,12 @@
 name: kushex
 
+x-backend-build: &backend-build
+  context: ..
+  dockerfile: docker/Dockerfile
+  target: backend
+
+x-database-url: &database-url postgresql://kushex:${POSTGRES_PASSWORD:-kushex_local}@postgres:5432/kushex
+
 services:
   frontend:
     build:
@@ -7,31 +14,44 @@ services:
       dockerfile: docker/Dockerfile
       target: frontend
     ports:
-      - "3050:80"
+      # Loopback only: the API has no authentication yet (single local operator).
+      - "127.0.0.1:3050:80"
     depends_on:
       backend:
         condition: service_healthy
 
+  # Explicit schema migration step (prisma migrate deploy); the backend starts only after it succeeds.
+  migrate:
+    build: *backend-build
+    init: true
+    command: ["node_modules/.bin/prisma", "migrate", "deploy"]
+    environment:
+      DATABASE_URL: *database-url
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
   backend:
-    build:
-      context: ..
-      dockerfile: docker/Dockerfile
-      target: backend
+    build: *backend-build
     init: true
     environment:
       HOST: 0.0.0.0
       PORT: "3000"
-      DATABASE_URL: postgresql://kushex:${POSTGRES_PASSWORD:-kushex_local}@postgres:5432/kushex
+      DATABASE_URL: *database-url
     depends_on:
       postgres:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    # Readiness (database reachable, schema current) gates the frontend; /health is liveness.
     healthcheck:
       test:
         [
           "CMD",
           "node",
           "-e",
-          "fetch('http://127.0.0.1:3000/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))",
+          "fetch('http://127.0.0.1:3000/health/ready').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))",
         ]
       interval: 5s
       timeout: 3s

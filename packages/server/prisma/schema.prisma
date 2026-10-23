@@ -1,0 +1,13 @@
+// Kushex application tables. Kushibot framework stores own their `kushibot_*` tables
+// and are not modelled here.
+
+generator client {
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  moduleFormat        = "esm"
+  importFileExtension = "js"
+}
+
+datasource db {
+  provider = "postgresql"
+}

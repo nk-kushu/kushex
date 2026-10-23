@@ -1,6 +1,9 @@
 node_modules/
 dist/
 *.tsbuildinfo
+
+# Prisma Client, produced by `prisma generate`
+packages/server/src/generated/
 .DS_Store
 
 # local link to ../kushibot
