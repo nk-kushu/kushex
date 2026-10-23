@@ -1,3 +1,4 @@
+import { DatabaseConnectionError } from "../../errors/DatabaseConnectionError.js";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../../generated/prisma/client.js";
 import type { Logger } from "../../shared/application/Logger.js";
@@ -11,13 +12,6 @@ export type PrismaDatabaseOptions = Readonly<{
 
 /** Kushex tables live in their own PostgreSQL schema; keep in sync with `prisma.config.ts`. */
 export const KUSHEX_DATABASE_SCHEMA = "kushex";
-
-export class DatabaseConnectionError extends Error {
-  constructor(target: string, reason: string, cause: unknown) {
-    super(`Could not connect to PostgreSQL at ${target}: ${reason}`, { cause });
-    this.name = "DatabaseConnectionError";
-  }
-}
 
 /**
  * Owns the Prisma Client and its node-postgres pool. Repositories receive `client` and use

@@ -1,39 +1,14 @@
-import type { FastifyInstance } from "fastify";
+import { ExampleController } from "../../../tests/support/ExampleController.js";
+import { StubCheck } from "../../../tests/support/StubCheck.js";
 import { pino } from "pino";
 import { afterEach, describe, expect, it } from "vitest";
-import { z } from "zod";
-import type { ReadinessCheck, ReadinessCheckResult } from "../../app/health/ReadinessCheck.js";
+import type { ReadinessCheck } from "../../app/health/ReadinessCheck.js";
 import { ReadinessProbe } from "../../app/health/ReadinessProbe.js";
 import { ErrorResponder } from "./ErrorResponder.js";
 import { HealthController } from "./HealthController.js";
-import type { HttpController } from "./HttpController.js";
 import { HttpServer } from "./HttpServer.js";
 
 const logger = pino({ level: "silent" });
-
-class StubCheck implements ReadinessCheck {
-  constructor(
-    readonly name: string,
-    private readonly result: ReadinessCheckResult,
-  ) {}
-
-  async check(): Promise<ReadinessCheckResult> {
-    return this.result;
-  }
-}
-
-class ExampleController implements HttpController {
-  register(routes: FastifyInstance): void {
-    routes.post(
-      "/examples",
-      { schema: { body: z.object({ name: z.string().min(1), count: z.coerce.number().int() }) } },
-      async (request) => ({ received: request.body }),
-    );
-    routes.get("/explode", async () => {
-      throw new Error("database password is hunter2");
-    });
-  }
-}
 
 describe("HttpServer", () => {
   let server: HttpServer | undefined;

@@ -1,7 +1,7 @@
 import type { FastifyInstance, FastifyReply } from "fastify";
 import type { ReadinessProbe } from "../../app/health/ReadinessProbe.js";
 import type { HttpController } from "./HttpController.js";
-import { MethodNotAllowedError } from "./HttpError.js";
+import { MethodNotAllowedError } from "../../errors/MethodNotAllowedError.js";
 
 /**
  * `GET /health` is liveness: the process serves HTTP, independent of dependencies.

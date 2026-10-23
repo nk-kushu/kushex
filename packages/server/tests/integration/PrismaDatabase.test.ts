@@ -1,9 +1,7 @@
 import { pino } from "pino";
 import { describe, expect, it } from "vitest";
-import {
-  DatabaseConnectionError,
-  PrismaDatabase,
-} from "../../src/infrastructure/database/PrismaDatabase.js";
+import { DatabaseConnectionError } from "../../src/errors/DatabaseConnectionError.js";
+import { PrismaDatabase } from "../../src/infrastructure/database/PrismaDatabase.js";
 import { TemporaryDatabase } from "../support/TemporaryDatabase.js";
 
 const logger = pino({ level: "silent" });

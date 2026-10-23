@@ -1,6 +1,6 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
 import type { Logger } from "../../shared/application/Logger.js";
-import { type ApiErrorBody, HttpError } from "./HttpError.js";
+import { type ApiErrorBody, HttpError } from "../../errors/HttpError.js";
 
 /** Maps every failure to the API's `{ code, message, details? }` error body. */
 export class ErrorResponder {

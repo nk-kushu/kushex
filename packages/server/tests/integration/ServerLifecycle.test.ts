@@ -2,8 +2,8 @@ import { createServer } from "node:net";
 import pg from "pg";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { ApplicationFactory } from "../../src/app/ApplicationFactory.js";
-import { ServerConfigLoader } from "../../src/config/ServerConfig.js";
-import { DatabaseConnectionError } from "../../src/infrastructure/database/PrismaDatabase.js";
+import { ServerConfigLoader } from "../../src/config/ServerConfigLoader.js";
+import { DatabaseConnectionError } from "../../src/errors/DatabaseConnectionError.js";
 import { PrismaMigrator } from "../support/PrismaMigrator.js";
 import { TemporaryDatabase } from "../support/TemporaryDatabase.js";
 

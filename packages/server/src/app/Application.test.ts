@@ -1,37 +1,10 @@
+import { RecordingResource } from "../../tests/support/RecordingResource.js";
 import { pino } from "pino";
 import { describe, expect, it } from "vitest";
-import type { ManagedResource } from "../shared/application/ManagedResource.js";
 import { Application } from "./Application.js";
-import { ShutdownTimeoutError } from "./ProcessCommand.js";
+import { ShutdownTimeoutError } from "../errors/ShutdownTimeoutError.js";
 
 const logger = pino({ level: "silent" });
-
-class RecordingResource implements ManagedResource {
-  constructor(
-    readonly name: string,
-    private readonly events: string[],
-    private readonly behavior: {
-      failStart?: boolean;
-      failStop?: boolean;
-      stop?: (deadline: AbortSignal) => Promise<void>;
-    } = {},
-  ) {}
-
-  async start(): Promise<void> {
-    if (this.behavior.failStart) {
-      throw new Error(`${this.name} cannot start`);
-    }
-    this.events.push(`start ${this.name}`);
-  }
-
-  async stop(deadline: AbortSignal): Promise<void> {
-    await this.behavior.stop?.(deadline);
-    this.events.push(`stop ${this.name}`);
-    if (this.behavior.failStop) {
-      throw new Error(`${this.name} cannot stop`);
-    }
-  }
-}
 
 describe("Application", () => {
   it("starts in order and stops in reverse order when the stop signal aborts", async () => {

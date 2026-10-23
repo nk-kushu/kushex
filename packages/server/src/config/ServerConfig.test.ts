@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { ConfigurationError, ServerConfigLoader } from "./ServerConfig.js";
+import { ConfigurationError } from "../errors/ConfigurationError.js";
+import { ServerConfigLoader } from "./ServerConfigLoader.js";
 
 const databaseUrl = "postgresql://kushex:secret@postgres:5432/kushex";
 

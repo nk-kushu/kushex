@@ -10,7 +10,7 @@ import type { ZodType } from "zod";
 import type { ManagedResource } from "../../shared/application/ManagedResource.js";
 import type { ErrorResponder } from "./ErrorResponder.js";
 import type { HttpController } from "./HttpController.js";
-import { RequestValidationError } from "./HttpError.js";
+import { RequestValidationError } from "../../errors/RequestValidationError.js";
 
 export type HttpServerOptions = Readonly<{ host: string; port: number }>;
 

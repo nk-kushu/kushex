@@ -1,20 +1,9 @@
+import { FunctionCheck } from "../../../tests/support/FunctionCheck.js";
 import { pino } from "pino";
 import { describe, expect, it } from "vitest";
-import type { ReadinessCheck, ReadinessCheckResult } from "./ReadinessCheck.js";
 import { ReadinessProbe } from "./ReadinessProbe.js";
 
 const logger = pino({ level: "silent" });
-
-class FunctionCheck implements ReadinessCheck {
-  constructor(
-    readonly name: string,
-    private readonly behavior: () => Promise<ReadinessCheckResult>,
-  ) {}
-
-  check(): Promise<ReadinessCheckResult> {
-    return this.behavior();
-  }
-}
 
 describe("ReadinessProbe", () => {
   it("is ready when every check is ready", async () => {

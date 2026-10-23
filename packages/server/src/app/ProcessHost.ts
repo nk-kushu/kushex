@@ -1,6 +1,8 @@
-import { ConfigurationError, ServerConfigLoader } from "../config/ServerConfig.js";
+import { ConfigurationError } from "../errors/ConfigurationError.js";
+import { ServerConfigLoader } from "../config/ServerConfigLoader.js";
 import { ApplicationFactory } from "./ApplicationFactory.js";
-import { type ProcessCommand, ShutdownTimeoutError } from "./ProcessCommand.js";
+import type { ProcessCommand } from "./ProcessCommand.js";
+import { ShutdownTimeoutError } from "../errors/ShutdownTimeoutError.js";
 
 /**
  * Adapts a command to the Node.js process: loads configuration, turns SIGINT/SIGTERM into a

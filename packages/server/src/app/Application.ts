@@ -1,6 +1,7 @@
 import type { Logger } from "../shared/application/Logger.js";
 import type { ManagedResource } from "../shared/application/ManagedResource.js";
-import { type ProcessCommand, ShutdownTimeoutError } from "./ProcessCommand.js";
+import type { ProcessCommand } from "./ProcessCommand.js";
+import { ShutdownTimeoutError } from "../errors/ShutdownTimeoutError.js";
 
 /** Grace period after the deadline aborts, for resources to finish forced cleanup. */
 const FORCED_STOP_GRACE_MS = 2000;
