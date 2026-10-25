@@ -8,11 +8,20 @@ const databaseUrl = "postgresql://kushex:secret@postgres:5432/kushex";
 describe("ServerConfigLoader", () => {
   const loader = new ServerConfigLoader();
 
+  it("accepts several comma-separated workspace roots", () => {
+    expect(
+      loader.load({
+        DATABASE_URL: databaseUrl,
+        KUSHEX_WORKSPACES_ROOT: "/Users/me/PersonalProjects, /Users/me/projects",
+      }).workspacesRoots,
+    ).toEqual(["/Users/me/PersonalProjects", "/Users/me/projects"]);
+  });
+
   it("applies defaults when only the database URL is set", () => {
     expect(loader.load({ DATABASE_URL: databaseUrl })).toEqual({
       http: { host: "127.0.0.1", port: 3000 },
       database: { url: databaseUrl, maxConnections: 10, connectionTimeoutMs: 5000 },
-      workspacesRoot: path.resolve("workspaces"),
+      workspacesRoots: [path.resolve("workspaces")],
       allowedOrigins: [
         "http://localhost:5173",
         "http://127.0.0.1:5173",
@@ -66,6 +75,9 @@ it("rejects relative workspace roots and malformed browser origins", () => {
   expect(() =>
     loader.load({ DATABASE_URL: databaseUrl, KUSHEX_WORKSPACES_ROOT: "../checkouts" }),
   ).toThrow(/KUSHEX_WORKSPACES_ROOT/);
+  expect(() =>
+    loader.load({ DATABASE_URL: databaseUrl, KUSHEX_WORKSPACES_ROOT: "/a/code,/b/code" }),
+  ).toThrow(/same name/);
   expect(() =>
     loader.load({
       DATABASE_URL: databaseUrl,

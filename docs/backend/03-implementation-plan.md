@@ -89,8 +89,9 @@ reported, and “Start with agent” opens traceable work without duplicate exec
 - Define actual project/agent settings rather than persisting the placeholder
   fields. Keep credentials in server configuration or a secret store and expose
   only non-secret settings/references.
-- Retain color mode, density, open tabs, and panel layout as client preferences
-  unless synchronization is explicitly requested.
+- Color mode and density now persist per actor through `GET/PATCH /settings`.
+  Retain open tabs and panel layout as client preferences unless synchronization
+  is explicitly requested.
 
 **Done when:** notes survive restart, stale saves cannot silently overwrite newer
 content, and execution configuration is server-resolved without returning secrets.

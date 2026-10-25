@@ -5,6 +5,6 @@ import { createRoot } from "react-dom/client";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <KushexPanel instanceId="standalone" style={{ height: "100%" }} />
+    <KushexPanel instanceId="standalone" router="browser" style={{ height: "100%" }} />
   </StrictMode>,
 );

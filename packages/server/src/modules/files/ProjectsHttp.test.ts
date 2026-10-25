@@ -30,7 +30,7 @@ const jsonHeaders = { "content-type": "application/json", origin };
 beforeEach(async () => {
   fixture = await WorkspaceFixture.create();
   repository = new InMemoryProjectRepository();
-  const filesystem = new LocalWorkspaceFileSystem(new WorkspacePathResolver(fixture.root), 64, 500);
+  const filesystem = new LocalWorkspaceFileSystem(new WorkspacePathResolver(fixture.roots), 64, 500);
   const workspaces = new WorkspaceService(repository, filesystem);
   const contexts = new RequestContextFactory(new LocalOperatorActorResolver());
   const logger = pino({ level: "silent" });
@@ -56,7 +56,7 @@ async function create(): Promise<ProjectDto> {
   const response = await fetch(`${base}/projects`, {
     method: "POST",
     headers: jsonHeaders,
-    body: JSON.stringify({ name: " Alpha ", path: "alpha" }),
+    body: JSON.stringify({ name: " Alpha ", path: "root/alpha" }),
   });
   expect(response.status).toBe(201);
   return response.json() as Promise<ProjectDto>;
@@ -66,12 +66,15 @@ describe("projects and files over HTTP", () => {
   it("creates a project, lists it, lazily lists its tree and reads its content", async () => {
     const locations = await fetch(`${base}/locations`);
     expect(await locations.json()).toMatchObject({
-      entries: expect.arrayContaining([{ name: "alpha", path: "alpha", kind: "directory" }]),
+      entries: expect.arrayContaining([
+        { name: "alpha", path: "root/alpha", kind: "directory" },
+        { name: "gamma", path: "other/gamma", kind: "directory" },
+      ]),
     });
     const project = await create();
     expect(project).toMatchObject({
       name: "Alpha",
-      workspace: { path: "alpha", branch: null, revision: null },
+      workspace: { path: "root/alpha", branch: null, revision: null },
     });
     expect(await (await fetch(`${base}/projects`)).json()).toMatchObject({ entries: [project] });
     expect(await (await fetch(`${base}/projects/${project.id}`)).json()).toEqual(project);
@@ -123,17 +126,17 @@ describe("projects and files over HTTP", () => {
     const invalid = await fetch(`${base}/projects`, {
       method: "POST",
       headers: jsonHeaders,
-      body: JSON.stringify({ name: "", path: "alpha" }),
+      body: JSON.stringify({ name: "", path: "root/alpha" }),
     });
     expect(invalid.status).toBe(400);
     const escape = await fetch(`${base}/projects`, {
       method: "POST",
       headers: jsonHeaders,
-      body: JSON.stringify({ name: "Escape", path: "escape" }),
+      body: JSON.stringify({ name: "Escape", path: "root/escape" }),
     });
     expect(escape.status).toBe(403);
     expect(await repository.list("local-operator", 0)).toEqual({ entries: [], nextOffset: null });
-    const other = await repository.create("someone-else", { name: "Other", path: "alpha" });
+    const other = await repository.create("someone-else", { name: "Other", path: "root/alpha" });
     expect((await fetch(`${base}/projects/${other.id}/tree`)).status).toBe(404);
     expect((await fetch(`${base}/projects/${other.id}`)).status).toBe(404);
     expect((await fetch(`${base}/projects/${randomUUID()}/file?path=empty.txt`)).status).toBe(404);
@@ -152,7 +155,7 @@ describe("projects and files over HTTP", () => {
           resolve(response.statusCode ?? 0);
         });
         request.on("error", reject);
-        request.end(JSON.stringify({ name: "Attack", path: "alpha" }));
+        request.end(JSON.stringify({ name: "Attack", path: "root/alpha" }));
       });
       expect(status, JSON.stringify(headers)).toBe(403);
     }
@@ -172,7 +175,7 @@ describe("projects and files over HTTP", () => {
         await fetch(`${base}/projects`, {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ name: "CLI", path: "alpha" }),
+          body: JSON.stringify({ name: "CLI", path: "root/alpha" }),
         })
       ).status,
     ).toBe(201);

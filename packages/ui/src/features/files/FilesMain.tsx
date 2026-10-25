@@ -1,6 +1,7 @@
 import { Splitter } from "antd";
 import { FillTabs } from "../../shared/components/FillTabs";
 import { useAppDispatch, useAppSelector } from "../../app/hooks";
+import { usePersistedSplitter } from "../settings/usePersistedSplitter";
 import { EmptyMain } from "../workbench/EmptyMain";
 import {
   fileTabActivated,
@@ -18,10 +19,11 @@ export function FilesMain() {
   const tabs = useAppSelector(selectFileTabs);
   const projectId = useAppSelector(selectProjectId);
   const active = useAppSelector(selectActiveFileTab);
+  const { splitter, size } = usePersistedSplitter("files", 2);
 
   return (
-    <Splitter orientation="vertical">
-      <Splitter.Panel min={120}>
+    <Splitter orientation="vertical" {...splitter}>
+      <Splitter.Panel size={size(0)} min={120}>
         {tabs.length === 0 ? (
           <EmptyMain text="Open a file from the tree" />
         ) : (
@@ -49,7 +51,7 @@ export function FilesMain() {
           />
         )}
       </Splitter.Panel>
-      <Splitter.Panel defaultSize="28%" min={60} collapsible>
+      <Splitter.Panel size={size(1)} defaultSize="28%" min={60} collapsible>
         <BottomPanel />
       </Splitter.Panel>
     </Splitter>

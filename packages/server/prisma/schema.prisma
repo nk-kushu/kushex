@@ -35,3 +35,30 @@ model Workspace {
 
   @@schema("kushex")
 }
+
+// Settings belong to the request actor, independently of projects and panel instances.
+enum ColorMode {
+  system
+  light
+  dark
+
+  @@schema("kushex")
+}
+
+enum Density {
+  comfortable
+  compact
+
+  @@schema("kushex")
+}
+
+model UserSettings {
+  actorId   String    @id
+  colorMode ColorMode @default(system)
+  density   Density   @default(comfortable)
+  /// Splitter id → panel fractions; PATCH merges by id.
+  splitterSizes Json  @default("{}")
+  updatedAt DateTime  @updatedAt
+
+  @@schema("kushex")
+}

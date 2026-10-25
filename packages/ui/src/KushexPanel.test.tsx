@@ -1,6 +1,7 @@
 import { act, render, screen, waitFor } from "@testing-library/react";
 import { createRef } from "react";
 import { KushexPanel } from "./KushexPanel";
+import { mockKushexApi } from "./test/mockApi";
 import type { KushexPanelHandle } from "./types";
 
 describe("KushexPanel", () => {
@@ -11,24 +12,42 @@ describe("KushexPanel", () => {
   });
 
   it("switches color mode through the handle and persists it", async () => {
+    const { fetch } = mockKushexApi([]);
     const ref = createRef<KushexPanelHandle>();
-    render(<KushexPanel ref={ref} colorMode="light" instanceId="p1" />);
+    render(<KushexPanel ref={ref} instanceId="p1" />);
     const root = document.querySelector(".kx-root") as HTMLElement;
-    expect(root).toHaveClass("kx-light");
+    await waitFor(() => expect(root).toHaveClass("kx-light"));
     const lightBg = root.style.getPropertyValue("--kx-ant-color-bg-container");
 
     act(() => ref.current!.setColorMode("dark"));
 
     await waitFor(() => expect(root).toHaveClass("kx-dark"));
     expect(root.style.getPropertyValue("--kx-ant-color-bg-container")).not.toBe(lightBg);
-    expect(JSON.parse(localStorage.getItem("kushex:preferences:p1")!)).toMatchObject({ colorMode: "dark" });
+    await waitFor(() =>
+      expect(
+        fetch.mock.calls.some(([input]) => input instanceof Request && input.method === "PATCH"),
+      ).toBe(true),
+    );
+    expect(localStorage.getItem("kushex:preferences:p1")).toBeNull();
+  });
+
+  it("keeps a host color override local and restores the user preference when removed", async () => {
+    const { fetch } = mockKushexApi([]);
+    const { rerender } = render(<KushexPanel colorMode="dark" />);
+    const root = document.querySelector(".kx-root") as HTMLElement;
+    await waitFor(() => expect(root).toHaveClass("kx-dark"));
+    rerender(<KushexPanel />);
+    await waitFor(() => expect(root).toHaveClass("kx-light"));
+    expect(
+      fetch.mock.calls.every(([input]) => !(input instanceof Request) || input.method !== "PATCH"),
+    ).toBe(true);
   });
 
   it("keeps two panels independent", async () => {
     const a = createRef<KushexPanelHandle>();
     render(
       <>
-        <KushexPanel ref={a} instanceId="a" colorMode="light" />
+        <KushexPanel ref={a} instanceId="a" />
         <KushexPanel instanceId="b" colorMode="light" />
       </>,
     );

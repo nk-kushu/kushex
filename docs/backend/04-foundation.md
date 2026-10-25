@@ -142,10 +142,11 @@ The initial deployment model is **one local operator on a single machine**:
 
 - Kushex **registers existing checkouts**. It does not clone repositories or hold Git
   credentials initially.
-- The operator mounts one host directory into the backend at a fixed container root,
-  `KUSHEX_WORKSPACES_ROOT` (for example `/workspaces`). This mount is separate from
-  the dev-mode mounts used to edit Kushex itself, and is added in phase 2.
-- A project workspace is a relative path under that root. It is resolved with
+- The operator mounts one or more host directories into the backend and lists them,
+  comma-separated, in `KUSHEX_WORKSPACES_ROOT` (for example `/workspaces`). These
+  mounts are separate from the dev-mode mounts used to edit Kushex itself.
+- A project workspace is a path prefixed with its root's basename
+  (`projects/app`). It is resolved with
   `realpath`, and anything resolving outside the root (`..`, absolute paths,
   symlinks) is rejected.
 - Phase 2 only reads, so the mount is read-only until phase 4 applies accepted

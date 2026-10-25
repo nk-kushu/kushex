@@ -1,9 +1,11 @@
 import { Avatar, Button, Card, Divider, Input, List, Segmented, Select, Table, Tag, Timeline, Typography } from "antd";
 import { useState } from "react";
+import { Navigate, useNavigate, useParams } from "react-router";
 import { AppIcon } from "../../shared/components/AppIcon";
 import { FillTabs } from "../../shared/components/FillTabs";
 import { AddIcon, FilterIcon, UserIcon } from "../../shared/lib/icons";
 import { borderB, borderR, borderT } from "../../shared/lib/styles";
+import { paths } from "../workbench/navigation";
 
 type Status = "backlog" | "in-progress" | "in-review" | "done";
 type TaskItem = { key: string; title: string; status: Status; tags: string[] };
@@ -127,13 +129,15 @@ function TaskDetail({ task }: Readonly<{ task: TaskItem }>) {
 
 export function TasksScreen() {
   const [view, setView] = useState<"board" | "list">("board");
+  const navigate = useNavigate();
+  const { taskId } = useParams();
+  const task = tasks.find((item) => item.key === taskId);
   const [open, setOpen] = useState<TaskItem[]>([]);
-  const [active, setActive] = useState("overview");
-
-  const openTask = (task: TaskItem) => {
-    setOpen((current) => (current.some((item) => item.key === task.key) ? current : [...current, task]));
-    setActive(task.key);
-  };
+  // The task in the URL always has a tab, also when reached by link or history.
+  if (task && !open.includes(task)) setOpen([...open, task]);
+  if (taskId && !task) return <Navigate to={paths.tasks()} replace />;
+  const active = task?.key ?? "overview";
+  const openTask = (item: TaskItem) => void navigate(paths.tasks(item.key));
 
   return (
     <div className="kx:flex kx:h-full kx:flex-col kx:bg-surface">
@@ -162,11 +166,11 @@ export function TasksScreen() {
           hideAdd
           size="small"
           activeKey={active}
-          onChange={setActive}
+          onChange={(key) => void navigate(paths.tasks(key === "overview" ? undefined : key))}
           onEdit={(key, action) => {
             if (action !== "remove") return;
             setOpen((current) => current.filter((task) => task.key !== key));
-            if (active === key) setActive("overview");
+            if (active === key) void navigate(paths.tasks());
           }}
           items={[
             {

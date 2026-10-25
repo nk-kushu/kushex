@@ -12,6 +12,8 @@ export type MountOptions = Omit<KushexPanelOptions, "styleContainer"> &
 
 export type KushexHandle = Readonly<{
   setColorMode: (mode: ColorMode) => void;
+  /** Go to a panel path, e.g. "/settings". */
+  navigate: (path: string) => void;
   unmount: () => void;
 }>;
 
@@ -46,6 +48,7 @@ export function mountKushex(el: HTMLElement, options: MountOptions): KushexHandl
   let mounted = true;
   return {
     setColorMode: (mode) => ref.current?.setColorMode(mode),
+    navigate: (path) => ref.current?.navigate(path),
     unmount: () => {
       if (!mounted) return;
       mounted = false;

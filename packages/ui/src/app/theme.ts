@@ -5,8 +5,13 @@ import type { GetAntdThemeConfig } from "antd-style";
 export const ANTD_CSS_VAR_PREFIX = "kx-ant";
 
 const shared: ThemeConfig["token"] = {
-  colorPrimary: "#4f46e5",
-  borderRadius: 8,
+  colorPrimary: "#fa8c16",
+  // Square corners everywhere; the size variants are pinned so none derive a radius.
+  borderRadius: 0,
+  borderRadiusXS: 0,
+  borderRadiusSM: 0,
+  borderRadiusLG: 0,
+  borderRadiusOuter: 0,
   fontFamily: "Inter, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif",
 };
 

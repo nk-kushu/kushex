@@ -12,3 +12,6 @@ pnpm-workspace.local.yaml
 # Native development workspace mount
 /workspaces/*
 !/workspaces/.gitkeep
+
+# Machine-specific workspace mounts
+/docker/compose.local.yml

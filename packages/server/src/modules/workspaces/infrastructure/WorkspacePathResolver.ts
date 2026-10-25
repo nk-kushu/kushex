@@ -4,10 +4,23 @@ import { ForbiddenError } from "../../../errors/ForbiddenError.js";
 import { NotFoundError } from "../../../errors/NotFoundError.js";
 import { WorkspacePath } from "../domain/WorkspacePath.js";
 
-/** Re-resolves both boundaries on every request; symlinks cannot widen a checkout. */
+/**
+ * Re-resolves both boundaries on every request; symlinks cannot widen a checkout.
+ * Workspace paths start with the basename of one configured root, e.g. `projects/app`.
+ */
 export class WorkspacePathResolver {
   private readonly ignored = new Set([".git", "node_modules", "dist"]);
-  constructor(private readonly root: string) {}
+  private readonly roots: ReadonlyMap<string, string>;
+  constructor(roots: readonly string[]) {
+    this.roots = new Map(roots.map((root) => [path.basename(root), root]));
+    if (this.roots.size === 0 || this.roots.size !== roots.length)
+      throw new Error("Workspace roots must be non-empty with unique basenames.");
+  }
+
+  /** Root names in configuration order; each is also a valid workspace path. */
+  rootNames(): readonly string[] {
+    return [...this.roots.keys()];
+  }
 
   isIgnored(name: string): boolean {
     return this.ignored.has(name);
@@ -16,9 +29,12 @@ export class WorkspacePathResolver {
   async resolve(workspace: string, relative = ""): Promise<WorkspacePath> {
     this.validate(workspace);
     this.validate(relative);
+    const [name = "", ...rest] = workspace.split("/");
+    const configured = this.roots.get(name);
+    if (configured === undefined) throw new NotFoundError("Workspace root is not configured.");
     try {
-      const root = await realpath(this.root);
-      const checkout = await realpath(path.resolve(root, workspace));
+      const root = await realpath(configured);
+      const checkout = await realpath(path.resolve(root, rest.join("/")));
       new WorkspacePath(workspace, checkout, root);
       const absolute = await realpath(path.resolve(checkout, relative));
       return new WorkspacePath(relative, absolute, checkout);

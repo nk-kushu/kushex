@@ -19,8 +19,12 @@ Kushibot's isolated edit workspace is unrelated and is not implemented here.
 
 ## Deployment and containment
 
-`KUSHEX_WORKSPACES_ROOT` is the absolute deployment boundary. Workspace rows store
-relative paths, and requests carry paths relative to that workspace. The local
+`KUSHEX_WORKSPACES_ROOT` is a comma-separated list of absolute roots; together they
+form the deployment boundary. Root basenames must be unique, because a workspace row
+stores `<root basename>/<directory>` (for example `PersonalProjects/KushiBox`).
+`GET /locations` lists the immediate subdirectories of every root in configuration
+order, and a root itself cannot become a project. Requests carry paths relative to
+that workspace. A checkout must stay inside its own root. The local
 adapter resolves both with `realpath` on every request. It rejects absolute paths,
 parent traversal, Windows-style paths, NULs, and symlinks escaping either boundary.
 Symlinks within the checkout can be read. Escaping and broken links are omitted
@@ -39,8 +43,12 @@ docker compose -f docker/compose.standalone.yml up --build
 
 The mount makes host files reachable; the resolver limits each project to its own
 checkout. A link from one checkout into a sibling is forbidden even when both are
-mounted. Native development uses the same adapter; set
-`KUSHEX_WORKSPACES_ROOT=/absolute/path/to/checkouts` before starting the server.
+mounted. For several host roots, add a gitignored `docker/compose.local.yml` override that
+binds each one under `/roots/<name>` and sets
+`KUSHEX_WORKSPACES_ROOT=/roots/PersonalProjects,/roots/projects`. Native development
+uses the same adapter; set
+`KUSHEX_WORKSPACES_ROOT=/Users/niki/PersonalProjects,/Users/niki/projects` before
+starting the server.
 The native default is `workspaces` relative to the server's working directory.
 
 This is a local-operator tool over trusted local checkouts. The adapter rechecks
@@ -54,7 +62,7 @@ Routes below are on the backend; the frontend proxy adds `/api`.
 
 | Route | Response |
 | --- | --- |
-| `GET /locations?offset=0` | Immediate root subdirectories, `{ entries, nextOffset }` |
+| `GET /locations?offset=0` | Immediate subdirectories of every root, root-prefixed, `{ entries, nextOffset }` |
 | `POST /projects` | `{ name, path, description? }` → `201 ProjectDto` |
 | `GET /projects?offset=0` | `{ entries: ProjectDto[], nextOffset }`, 100 projects per page |
 | `GET /projects/:id` | Selected project metadata, including workspace |

@@ -12,7 +12,7 @@ repository README). To run it on the host against your own database:
 
 ```sh
 pnpm install
-export KUSHEX_WORKSPACES_ROOT=/absolute/path/to/checkouts
+export KUSHEX_WORKSPACES_ROOT=/absolute/path/to/checkouts,/another/root   # comma-separated
 export DATABASE_URL=postgresql://kushex:kushex_local@127.0.0.1:5432/kushex
 pnpm --filter @kushex/server migrate   # prisma migrate deploy (explicit step)
 pnpm --filter @kushex/server dev       # prisma generate, then tsx watch on :3000
@@ -34,6 +34,30 @@ Projects and read-only browsing: `GET /locations`, `POST /projects`,
 `GET /projects`, `GET /projects/:id`, `GET /projects/:id/tree?path=`, and
 `GET /projects/:id/file?path=`. See [projects and workspaces](../../docs/backend/05-projects-and-workspaces.md)
 for DTOs, pagination, preview limits, containment, and Origin/Host configuration.
+
+## User settings
+
+`GET /settings` returns `{ "colorMode": "system", "density": "comfortable" }` by
+default when no settings have been saved. `PATCH /settings` accepts one or both
+fields: `colorMode` (`system`, `light`, `dark`) and `density` (`comfortable`,
+`compact`). It returns the complete settings. Empty bodies, unknown fields,
+nulls, and unsupported values are rejected with `400`.
+
+Settings are stored in `kushex."UserSettings"`, keyed by the actor resolved from
+the request. The current single-operator deployment resolves all requests to
+`local-operator`; supplying an actor ID in the body is not supported. Partial
+updates use an atomic database upsert and preserve omitted settings. Both
+responses disable caching, and PATCH uses the existing Host/Origin/JSON guards.
+
+The panel loads settings on mount and saves appearance changes through this API.
+Settings are shared across browsers and panel instance IDs for the same actor;
+existing browser-local preferences are not imported. Host-provided color mode
+remains a local override and is not persisted. Failed loads and saves have retry
+controls on the Settings screen. General, Project, and Agent placeholder fields
+are not saved.
+
+Apply the `20261025000000_user_settings` migration with the normal `migrate`
+command before running the updated server.
 
 ## Prisma and migrations
 

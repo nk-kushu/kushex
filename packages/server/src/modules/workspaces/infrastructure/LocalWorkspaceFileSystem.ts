@@ -17,11 +17,13 @@ export class LocalWorkspaceFileSystem implements WorkspaceFileSystem {
   ) {}
 
   locations(offset: number): Promise<DirectoryPageDto> {
-    return this.list("", "", offset, true);
+    return this.guarded(() => this.page(this.rootDirectories(), offset));
   }
 
   async validateLocation(relative: string): Promise<void> {
     await this.guarded(async () => {
+      if (!relative.split("/").some((part, index) => index > 0 && part !== ""))
+        throw new ForbiddenError("Choose a directory inside a workspace root.");
       const location = await this.resolver.resolve(relative);
       if (!(await stat(location.absolute)).isDirectory())
         throw new NotFoundError("Workspace directory not found.");
@@ -29,7 +31,7 @@ export class LocalWorkspaceFileSystem implements WorkspaceFileSystem {
   }
 
   tree(workspace: string, relative: string, offset: number): Promise<DirectoryPageDto> {
-    return this.list(workspace, relative, offset, false);
+    return this.guarded(() => this.page(this.entries(workspace, relative, false), offset));
   }
 
   async file(workspace: string, relative: string): Promise<FileContentDto> {
@@ -80,43 +82,55 @@ export class LocalWorkspaceFileSystem implements WorkspaceFileSystem {
     });
   }
 
-  private async list(
+  /** Immediate subdirectories of every root, as root-prefixed workspace paths. */
+  private async *rootDirectories(): AsyncGenerator<DirectoryEntryDto> {
+    for (const root of this.resolver.rootNames())
+      for await (const entry of this.entries(root, "", true))
+        yield { ...entry, path: path.posix.join(root, entry.path) };
+  }
+
+  private async *entries(
     workspace: string,
     relative: string,
-    offset: number,
     directoriesOnly: boolean,
+  ): AsyncGenerator<DirectoryEntryDto> {
+    const location = await this.resolver.resolve(workspace, relative);
+    const directory = await opendir(location.absolute);
+    for await (const entry of directory) {
+      if (this.resolver.isIgnored(entry.name)) continue;
+      const entryPath = path.posix.join(relative, entry.name);
+      let kind: "directory" | "file";
+      if (entry.isDirectory()) kind = "directory";
+      else if (entry.isFile()) kind = "file";
+      else if (entry.isSymbolicLink()) {
+        try {
+          const target = await this.resolver.resolve(workspace, entryPath);
+          const info = await stat(target.absolute);
+          if (info.isDirectory()) kind = "directory";
+          else if (info.isFile()) kind = "file";
+          else continue;
+        } catch (error) {
+          if (error instanceof ForbiddenError || error instanceof NotFoundError) continue;
+          throw error;
+        }
+      } else continue;
+      if (directoriesOnly && kind !== "directory") continue;
+      yield { name: entry.name, path: entryPath, kind };
+    }
+  }
+
+  private async page(
+    source: AsyncIterable<DirectoryEntryDto>,
+    offset: number,
   ): Promise<DirectoryPageDto> {
-    return this.guarded(async () => {
-      const location = await this.resolver.resolve(workspace, relative);
-      const directory = await opendir(location.absolute);
-      const entries: DirectoryEntryDto[] = [];
-      let seen = 0;
-      for await (const entry of directory) {
-        if (this.resolver.isIgnored(entry.name)) continue;
-        const entryPath = path.posix.join(relative, entry.name);
-        let kind: "directory" | "file";
-        if (entry.isDirectory()) kind = "directory";
-        else if (entry.isFile()) kind = "file";
-        else if (entry.isSymbolicLink()) {
-          try {
-            const target = await this.resolver.resolve(workspace, entryPath);
-            const info = await stat(target.absolute);
-            if (info.isDirectory()) kind = "directory";
-            else if (info.isFile()) kind = "file";
-            else continue;
-          } catch (error) {
-            if (error instanceof ForbiddenError || error instanceof NotFoundError) continue;
-            throw error;
-          }
-        } else continue;
-        if (directoriesOnly && kind !== "directory") continue;
-        if (seen++ < offset) continue;
-        if (entries.length === this.pageSize)
-          return { entries, nextOffset: offset + entries.length };
-        entries.push({ name: entry.name, path: entryPath, kind });
-      }
-      return { entries, nextOffset: null };
-    });
+    const entries: DirectoryEntryDto[] = [];
+    let seen = 0;
+    for await (const entry of source) {
+      if (seen++ < offset) continue;
+      if (entries.length === this.pageSize) return { entries, nextOffset: offset + entries.length };
+      entries.push(entry);
+    }
+    return { entries, nextOffset: null };
   }
 
   private async guarded<T>(operation: () => Promise<T>): Promise<T> {

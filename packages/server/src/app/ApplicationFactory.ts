@@ -1,4 +1,9 @@
 import {
+  SettingsService,
+  PrismaSettingsRepository,
+  SettingsController,
+} from "../modules/settings/public.js";
+import {
   ProjectService,
   PrismaProjectRepository,
   ProjectsController,
@@ -55,7 +60,7 @@ export class ApplicationFactory {
     );
     const contexts = new RequestContextFactory(new LocalOperatorActorResolver());
     const filesystem = new LocalWorkspaceFileSystem(
-      new WorkspacePathResolver(this.config.workspacesRoot),
+      new WorkspacePathResolver(this.config.workspacesRoots),
     );
     const workspaces = new WorkspaceService(
       new PrismaWorkspaceRepository(database.client),
@@ -69,6 +74,10 @@ export class ApplicationFactory {
       new ErrorResponder(this.logger),
       [
         new HealthController(readiness),
+        new SettingsController(
+          new SettingsService(new PrismaSettingsRepository(database.client)),
+          contexts,
+        ),
         new LocationsController(workspaces, contexts),
         new ProjectsController(projects, contexts),
         new FilesController(files, contexts),

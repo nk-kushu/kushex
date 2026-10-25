@@ -1,5 +1,5 @@
 import { vi } from "vitest";
-import type { FileContentDto, ProjectDto } from "@kushex/contracts";
+import type { FileContentDto, ProjectDto, UserSettingsDto } from "@kushex/contracts";
 
 export const exampleProject: ProjectDto = {
   id: "11111111-1111-4111-8111-111111111111",
@@ -17,6 +17,7 @@ export const exampleProject: ProjectDto = {
 /** An HTTP boundary fixture; the real RTK Query middleware still runs. */
 export function mockKushexApi(initialProjects: ProjectDto[] = [exampleProject]) {
   const projects = [...initialProjects];
+  let settings: UserSettingsDto = { colorMode: "system", density: "comfortable", splitterSizes: {} };
   const files: Record<string, FileContentDto> = {
     "src/index.ts": {
       path: "src/index.ts",
@@ -35,6 +36,17 @@ export function mockKushexApi(initialProjects: ProjectDto[] = [exampleProject]) 
         status,
         headers: { "content-type": "application/json" },
       });
+    if (route === "/settings") {
+      if (request.method === "PATCH") {
+        const patch = (await request.json()) as Partial<UserSettingsDto>;
+        settings = {
+          ...settings,
+          ...patch,
+          splitterSizes: { ...settings.splitterSizes, ...patch.splitterSizes },
+        };
+      }
+      return respond(settings);
+    }
     if (route === "/projects" && request.method === "POST") {
       const body = (await request.json()) as { name: string; path: string };
       const project = {

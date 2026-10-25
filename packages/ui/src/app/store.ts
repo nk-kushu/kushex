@@ -13,7 +13,7 @@ export type MakeStoreOptions = StoreOptions & Readonly<{ preloadedState?: Partia
 
 /** Created per panel instance, never as a module-level singleton. */
 export function makeStore({ preloadedState, ...options }: MakeStoreOptions) {
-  const listeners = createListeners(options);
+  const listeners = createListeners();
   return configureStore({
     reducer: rootReducer,
     preloadedState,

@@ -10,7 +10,7 @@ let fixture: WorkspaceFixture;
 let resolver: WorkspacePathResolver;
 beforeEach(async () => {
   fixture = await WorkspaceFixture.create();
-  resolver = new WorkspacePathResolver(fixture.root);
+  resolver = new WorkspacePathResolver(fixture.roots);
 });
 afterEach(async () => {
   await fixture.remove();
@@ -18,8 +18,8 @@ afterEach(async () => {
 
 describe("workspace containment", () => {
   it("resolves files and internal symlinks inside the selected checkout", async () => {
-    const direct = await resolver.resolve("alpha", "src/index.ts");
-    const alias = await resolver.resolve("alpha", "alias.ts");
+    const direct = await resolver.resolve("root/alpha", "src/index.ts");
+    const alias = await resolver.resolve("root/alpha", "alias.ts");
     expect(alias.absolute).toBe(direct.absolute);
     expect(direct.relative).toBe("src/index.ts");
   });
@@ -35,27 +35,38 @@ describe("workspace containment", () => {
     "node_modules/pkg/index.js",
     "dist/index.js",
   ])("rejects unsafe request path %j", async (input) => {
-    await expect(resolver.resolve("alpha", input)).rejects.toBeInstanceOf(ForbiddenError);
+    await expect(resolver.resolve("root/alpha", input)).rejects.toBeInstanceOf(ForbiddenError);
   });
   it("rejects escapes through sibling and outside-root symlinks", async () => {
-    await expect(resolver.resolve("alpha", "sibling/secret.txt")).rejects.toBeInstanceOf(
+    await expect(resolver.resolve("root/alpha", "sibling/secret.txt")).rejects.toBeInstanceOf(
       ForbiddenError,
     );
-    await expect(resolver.resolve("alpha", "outside/secret.txt")).rejects.toBeInstanceOf(
+    await expect(resolver.resolve("root/alpha", "outside/secret.txt")).rejects.toBeInstanceOf(
       ForbiddenError,
     );
-    await expect(resolver.resolve("escape", "secret.txt")).rejects.toBeInstanceOf(ForbiddenError);
+    await expect(resolver.resolve("root/escape", "secret.txt")).rejects.toBeInstanceOf(ForbiddenError);
+  });
+  it("resolves checkouts under each configured root and rejects links between roots", async () => {
+    expect((await resolver.resolve("other/gamma", "secret.txt")).relative).toBe("secret.txt");
+    await expect(resolver.resolve("root/alpha", "cross/secret.txt")).rejects.toBeInstanceOf(
+      ForbiddenError,
+    );
+    await expect(resolver.resolve("unknown/alpha")).rejects.toBeInstanceOf(NotFoundError);
+    await expect(resolver.resolve("alpha")).rejects.toBeInstanceOf(NotFoundError);
+  });
+  it("rejects root lists with duplicate names", () => {
+    expect(() => new WorkspacePathResolver(["/a/code", "/b/code"])).toThrow();
   });
   it("does not confuse a matching path prefix with containment", async () => {
     await mkdir(path.join(fixture.root, "alpha-other"));
     await symlink("../alpha-other", path.join(fixture.root, "alpha/prefix"));
-    await expect(resolver.resolve("alpha", "prefix")).rejects.toBeInstanceOf(ForbiddenError);
+    await expect(resolver.resolve("root/alpha", "prefix")).rejects.toBeInstanceOf(ForbiddenError);
   });
   it("rechecks stale workspace pointers and symlink replacements", async () => {
-    await resolver.resolve("alpha", "src/index.ts");
+    await resolver.resolve("root/alpha", "src/index.ts");
     await rename(path.join(fixture.root, "alpha"), path.join(fixture.root, "old"));
-    await expect(resolver.resolve("alpha", "src/index.ts")).rejects.toBeInstanceOf(NotFoundError);
+    await expect(resolver.resolve("root/alpha", "src/index.ts")).rejects.toBeInstanceOf(NotFoundError);
     await symlink("../outside", path.join(fixture.root, "alpha"));
-    await expect(resolver.resolve("alpha", "secret.txt")).rejects.toBeInstanceOf(ForbiddenError);
+    await expect(resolver.resolve("root/alpha", "secret.txt")).rejects.toBeInstanceOf(ForbiddenError);
   });
 });

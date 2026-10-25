@@ -1,12 +1,14 @@
 import { useProjectQuery, useProjectsQuery } from "../../shared/api/kushexApi";
 import { Avatar, Button, Input, Select, Tooltip, Typography } from "antd";
 import { IconMoon, IconSun, IconSunMoon } from "@tabler/icons-react";
+import { useNavigate } from "react-router";
 import { useAppDispatch, useAppSelector } from "../../app/hooks";
 import { AppIcon } from "../../shared/components/AppIcon";
 import { SearchIcon, SettingsIcon, UserIcon } from "../../shared/lib/icons";
 import { borderB } from "../../shared/lib/styles";
 import { colorModeChanged, selectColorMode, type ColorMode } from "../settings/settingsSlice";
-import { activityChanged, projectOpened, selectProjectId } from "./workbenchSlice";
+import { paths, useOpenProject } from "./navigation";
+import { selectProjectId } from "./workbenchSlice";
 
 const nextColorMode: Readonly<Record<ColorMode, ColorMode>> = {
   light: "dark",
@@ -17,6 +19,8 @@ const colorModeIcon = { light: IconSun, dark: IconMoon, system: IconSunMoon } as
 
 export function TopBar({ compact }: Readonly<{ compact?: boolean }>) {
   const dispatch = useAppDispatch();
+  const navigate = useNavigate();
+  const openProject = useOpenProject();
   const project = useAppSelector(selectProjectId);
   const projects = useProjectsQuery(0);
   const selected = useProjectQuery(project ?? "", { skip: !project });
@@ -38,7 +42,7 @@ export function TopBar({ compact }: Readonly<{ compact?: boolean }>) {
         size="small"
         placeholder="Project"
         value={project ?? undefined}
-        onChange={(name: string) => dispatch(projectOpened(name))}
+        onChange={openProject}
         options={choices.map((project) => ({ value: project.id, label: project.name }))}
         className="kx:w-44"
       />
@@ -61,7 +65,7 @@ export function TopBar({ compact }: Readonly<{ compact?: boolean }>) {
         </Tooltip>
         <Button
           type="text"
-          onClick={() => dispatch(activityChanged("settings"))}
+          onClick={() => void navigate(paths.settings())}
           icon={<AppIcon icon={SettingsIcon} label="Settings" />}
         />
         <Avatar size="small" icon={<AppIcon icon={UserIcon} size="sm" />} />

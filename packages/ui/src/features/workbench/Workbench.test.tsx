@@ -1,7 +1,9 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
+import { createRef } from "react";
 import userEvent from "@testing-library/user-event";
 import { mockKushexApi } from "../../test/mockApi";
 import { KushexPanel } from "../../KushexPanel";
+import type { KushexPanelHandle } from "../../types";
 
 beforeEach(() => {
   mockKushexApi();
@@ -102,4 +104,50 @@ it("shows binary and oversized previews and refreshes changed text", async () =>
   await waitFor(() =>
     expect(screen.getByLabelText("src/index.ts contents")).toHaveTextContent("changed on disk"),
   );
+});
+
+describe("Workbench routes", () => {
+  it("opens the page named by the initial path", async () => {
+    render(<KushexPanel initialPath="/settings" />);
+    expect(screen.getByRole("heading", { name: "Settings" })).toBeInTheDocument();
+
+    const user = userEvent.setup();
+    const activities = screen.getByRole("navigation", { name: "Activities" });
+    await user.click(within(activities).getByRole("button", { name: "Tasks" }));
+    expect(screen.getByRole("heading", { name: "Tasks" })).toBeInTheDocument();
+  });
+
+  it("opens a project's files and a task straight from their URLs", async () => {
+    const { unmount } = render(<KushexPanel initialPath="/projects/11111111-1111-4111-8111-111111111111/files" />);
+    expect(await screen.findByText("src")).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("Project one · alpha");
+    unmount();
+
+    render(<KushexPanel initialPath="/tasks/t3" />);
+    expect(screen.getByRole("tab", { name: "Task title", selected: true })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Start with agent" })).toBeInTheDocument();
+  });
+
+  it("keeps the page in the URL in browser mode and falls back to Projects for unknown paths", async () => {
+    window.history.replaceState(null, "", "/kushex/nowhere");
+    const user = userEvent.setup();
+    render(<KushexPanel router="browser" basename="/kushex" />);
+    expect(screen.getByRole("heading", { name: "Projects" })).toBeInTheDocument();
+    expect(window.location.pathname).toBe("/kushex/projects");
+
+    await user.click(within(screen.getByRole("navigation", { name: "Activities" })).getByRole("button", { name: "Notes" }));
+    expect(window.location.pathname).toBe("/kushex/notes/n1");
+    window.history.replaceState(null, "", "/");
+  });
+});
+
+it("navigates through the handle and reports page changes to the host", async () => {
+  const ref = createRef<KushexPanelHandle>();
+  const onNavigate = vi.fn();
+  render(<KushexPanel ref={ref} onNavigate={onNavigate} />);
+  await waitFor(() => expect(onNavigate).toHaveBeenLastCalledWith("/projects"));
+
+  act(() => ref.current!.navigate("/notes"));
+  expect(screen.getByRole("textbox", { name: "Note text" })).toBeInTheDocument();
+  await waitFor(() => expect(onNavigate).toHaveBeenLastCalledWith("/notes/n1"));
 });

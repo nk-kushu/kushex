@@ -6,11 +6,15 @@ export class WorkspaceFixture {
   private constructor(
     readonly directory: string,
     readonly root: string,
+    readonly otherRoot: string,
   ) {}
   static async create(): Promise<WorkspaceFixture> {
     const directory = await mkdtemp(path.join(tmpdir(), "kushex-workspaces-"));
     const root = path.join(directory, "root");
-    const fixture = new WorkspaceFixture(directory, root);
+    const otherRoot = path.join(directory, "other");
+    const fixture = new WorkspaceFixture(directory, root, otherRoot);
+    await mkdir(path.join(otherRoot, "gamma"), { recursive: true });
+    await writeFile(path.join(otherRoot, "gamma/secret.txt"), "other root secret");
     for (const relative of [
       "alpha/src",
       "alpha/.git",
@@ -33,7 +37,12 @@ export class WorkspaceFixture {
     await symlink("src/index.ts", path.join(root, "alpha/alias.ts"));
     await symlink("../outside", path.join(root, "escape"));
     await symlink("missing", path.join(root, "alpha/broken"));
+    await symlink("../../other/gamma", path.join(root, "alpha/cross"));
     return fixture;
+  }
+  /** Both roots, as `KUSHEX_WORKSPACES_ROOT` would list them. */
+  get roots(): readonly string[] {
+    return [this.root, this.otherRoot];
   }
   remove(): Promise<void> {
     return rm(this.directory, { recursive: true, force: true });

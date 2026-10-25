@@ -1,8 +1,17 @@
-import { Form, Input, Menu, Radio, Typography } from "antd";
+import { Alert, Button, Form, Input, Menu, Radio, Typography } from "antd";
 import { useState } from "react";
 import { useAppDispatch, useAppSelector } from "../../app/hooks";
 import { borderR } from "../../shared/lib/styles";
-import { colorModeChanged, densityChanged, selectColorMode, selectDensity, type ColorMode, type Density } from "./settingsSlice";
+import {
+  colorModeChanged,
+  densityChanged,
+  selectColorMode,
+  selectDensity,
+  type ColorMode,
+  type Density,
+  settingsRequested,
+  settingsSaveRetried,
+} from "./settingsSlice";
 
 const sections = ["General", "Appearance", "Project", "Agent"] as const;
 type Section = (typeof sections)[number];
@@ -41,10 +50,26 @@ function AppearanceFields() {
 }
 
 export function SettingsScreen() {
+  const dispatch = useAppDispatch();
+  const { loadError, saveError } = useAppSelector((state) => state.settings);
   const [section, setSection] = useState<Section>("General");
   return (
     <div className="kx:h-full kx:overflow-auto kx:p-6">
       <Typography.Title level={3}>Settings</Typography.Title>
+      {loadError && (
+        <Alert
+          type="error"
+          title="Could not load your settings."
+          action={<Button onClick={() => dispatch(settingsRequested())}>Retry load</Button>}
+        />
+      )}
+      {saveError && (
+        <Alert
+          type="error"
+          title="Your settings could not be saved."
+          action={<Button onClick={() => dispatch(settingsSaveRetried())}>Retry save</Button>}
+        />
+      )}
       <div className="kx:grid kx:max-w-4xl kx:grid-cols-[12rem_1fr] kx:rounded-kx kx:bg-surface">
         <Menu
           mode="inline"

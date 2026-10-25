@@ -13,17 +13,16 @@ import {
 } from "antd";
 import { useState } from "react";
 import type { CreateProjectRequest } from "@kushex/contracts";
-import { useAppDispatch } from "../../app/hooks";
 import { errorMessage } from "../../shared/api/errorMessage";
 import {
   useCreateProjectMutation,
   useLocationsQuery,
   useProjectsQuery,
 } from "../../shared/api/kushexApi";
-import { projectOpened } from "../workbench/workbenchSlice";
+import { useOpenProject } from "../workbench/navigation";
 
 export function ProjectsScreen() {
-  const dispatch = useAppDispatch();
+  const openProject = useOpenProject();
   const [offset, setOffset] = useState(0);
   const [creating, setCreating] = useState(false);
   const projects = useProjectsQuery(offset, { refetchOnMountOrArgChange: true });
@@ -60,7 +59,7 @@ export function ProjectsScreen() {
             />
             <div className="kx:mt-4">
               <Button
-                onClick={() => dispatch(projectOpened(project.id))}
+                onClick={() => openProject(project.id)}
                 aria-label={`Open ${project.name}`}
               >
                 Open project
@@ -85,7 +84,7 @@ export function ProjectsScreen() {
 }
 
 function CreateProjectDialog({ onClose }: Readonly<{ onClose: () => void }>) {
-  const dispatch = useAppDispatch();
+  const openProject = useOpenProject();
   const [form] = Form.useForm<CreateProjectRequest>();
   const [offset, setOffset] = useState(0);
   const locations = useLocationsQuery(offset, { refetchOnMountOrArgChange: true });
@@ -93,7 +92,7 @@ function CreateProjectDialog({ onClose }: Readonly<{ onClose: () => void }>) {
   const submit = async (input: CreateProjectRequest) => {
     try {
       const project = await create(input).unwrap();
-      dispatch(projectOpened(project.id));
+      openProject(project.id);
       onClose();
     } catch {
       /* The mutation error is rendered in the dialog. */

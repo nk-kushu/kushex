@@ -1,10 +1,12 @@
 import { Button, Tooltip } from "antd";
 import type { Icon } from "@tabler/icons-react";
-import { useAppDispatch, useAppSelector } from "../../app/hooks";
+import { useNavigate } from "react-router";
+import { useAppSelector } from "../../app/hooks";
 import { AppIcon } from "../../shared/components/AppIcon";
 import { FilesIcon, NotesIcon, ProjectsIcon, SettingsIcon, TasksIcon } from "../../shared/lib/icons";
 import { borderR } from "../../shared/lib/styles";
-import { activityChanged, selectActivity, type Activity } from "./workbenchSlice";
+import { paths, useActivity, type Activity } from "./navigation";
+import { selectProjectId } from "./workbenchSlice";
 
 const top: readonly { key: Activity; label: string; icon: Icon }[] = [
   { key: "projects", label: "Projects", icon: ProjectsIcon },
@@ -14,15 +16,16 @@ const top: readonly { key: Activity; label: string; icon: Icon }[] = [
 ];
 
 function ActivityButton({ item }: Readonly<{ item: { key: Activity; label: string; icon: Icon } }>) {
-  const dispatch = useAppDispatch();
-  const active = useAppSelector(selectActivity) === item.key;
+  const navigate = useNavigate();
+  const projectId = useAppSelector(selectProjectId);
+  const active = useActivity() === item.key;
   return (
     <Tooltip title={item.label} placement="right">
       <Button
         type={active ? "primary" : "text"}
         size="large"
         aria-pressed={active}
-        onClick={() => dispatch(activityChanged(item.key))}
+        onClick={() => void navigate(item.key === "files" ? paths.files(projectId) : paths[item.key]())}
         icon={<AppIcon icon={item.icon} size="lg" label={item.label} />}
       />
     </Tooltip>

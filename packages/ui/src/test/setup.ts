@@ -1,5 +1,6 @@
 import { mockKushexApi } from "./mockApi";
 import "@testing-library/jest-dom/vitest";
+import { createElement } from "react";
 import { cleanup } from "@testing-library/react";
 import { afterEach, beforeEach, vi } from "vitest";
 
@@ -32,6 +33,12 @@ globalThis.ResizeObserver ??= class {
   unobserve() {}
   disconnect() {}
 } as unknown as typeof ResizeObserver;
+
+// Monaco needs real layout and web workers; render its value as plain text instead.
+vi.mock("@monaco-editor/react", () => ({
+  default: ({ value, options }: { value?: string; options?: { ariaLabel?: string } }) =>
+    createElement("pre", { "aria-label": options?.ariaLabel }, value),
+}));
 
 beforeEach(() => {
   mockKushexApi([]);

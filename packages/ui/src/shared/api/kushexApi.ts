@@ -5,6 +5,8 @@ import type {
   FileContentDto,
   Page,
   ProjectDto,
+  UserSettingsDto,
+  UpdateUserSettingsRequest,
 } from "@kushex/contracts";
 import type { StoreOptions } from "../../app/storeOptions";
 
@@ -24,6 +26,12 @@ export const kushexApi = createApi({
   tagTypes: ["Projects"],
   keepUnusedDataFor: 0,
   endpoints: (build) => ({
+    settings: build.query<UserSettingsDto, void>({
+      query: () => "/settings",
+    }),
+    updateSettings: build.mutation<UserSettingsDto, UpdateUserSettingsRequest>({
+      query: (body) => ({ url: "/settings", method: "PATCH", body }),
+    }),
     project: build.query<ProjectDto, string>({
       query: (id) => `/projects/${encodeURIComponent(id)}`,
       providesTags: ["Projects"],

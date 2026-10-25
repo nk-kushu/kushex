@@ -1,11 +1,10 @@
 import { Button, Card, Input, Select, Tag, Typography } from "antd";
 import { IconChevronRight } from "@tabler/icons-react";
-import { useAppDispatch } from "../../app/hooks";
 import { AppIcon } from "../../shared/components/AppIcon";
 import { AddIcon, AttachIcon, MentionIcon } from "../../shared/lib/icons";
 import { borderT } from "../../shared/lib/styles";
 import { PaneHeader } from "../workbench/PaneHeader";
-import { fileTabOpened } from "../workbench/workbenchSlice";
+import { useOpenFileTab } from "../workbench/navigation";
 
 function UserMessage({ text }: Readonly<{ text: string }>) {
   return (
@@ -27,7 +26,7 @@ function Step({ text }: Readonly<{ text: string }>) {
 }
 
 export function ChatPanel() {
-  const dispatch = useAppDispatch();
+  const openFileTab = useOpenFileTab();
   return (
     <aside aria-label="Chat" className="kx:flex kx:h-full kx:flex-col kx:bg-surface">
       <PaneHeader
@@ -59,7 +58,7 @@ export function ChatPanel() {
           <Card size="small" title="Changes" extra={<Typography.Text type="secondary">2 files</Typography.Text>}>
             <div className="kx:flex kx:items-center kx:justify-between kx:gap-2">
               <Typography.Text type="secondary">+12 −4</Typography.Text>
-              <Button size="small" type="primary" onClick={() => dispatch(fileTabOpened({ key: "diff:file.ts", title: "file.ts", kind: "diff" }))}>
+              <Button size="small" type="primary" onClick={() => openFileTab({ key: "diff:file.ts", title: "file.ts", kind: "diff" })}>
                 Review
               </Button>
             </div>

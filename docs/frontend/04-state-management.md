@@ -237,9 +237,11 @@ export const runsSlice = createSlice({
 
 - Name actions as events (`searchChanged`, `stepSelected`), not setters.
 - Derived data uses `createSelector`; never store derived values.
-- Persist only preferences (color mode, table density, column visibility) via a
-  listener that writes to `localStorage` in a `try/catch`, keyed per panel
-  instance id.
+- Persist color mode and density through the backend settings API. A per-store
+  listener loads `GET /settings` and serializes partial `PATCH /settings` updates.
+  Startup loading preserves edits made while the request is in flight. Settings
+  are scoped to the backend actor; host color mode overrides remain local.
+  Settings-screen alerts expose load/save failures with retry controls.
 
 ## Errors
 

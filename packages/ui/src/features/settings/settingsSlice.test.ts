@@ -1,4 +1,10 @@
-import { colorModeChanged, densityChanged, initialSettings, settingsSlice, toThemeMode } from "./settingsSlice";
+import {
+  colorModeChanged,
+  densityChanged,
+  initialSettings,
+  settingsSlice,
+  toThemeMode,
+} from "./settingsSlice";
 
 describe("settingsSlice", () => {
   it("handles preference events", () => {
@@ -6,7 +12,7 @@ describe("settingsSlice", () => {
     expect(state).toEqual(initialSettings);
     state = settingsSlice.reducer(state, colorModeChanged("dark"));
     state = settingsSlice.reducer(state, densityChanged("compact"));
-    expect(state).toEqual({ colorMode: "dark", density: "compact" });
+    expect(state).toMatchObject({ colorMode: "dark", density: "compact" });
   });
 
   it("maps system to antd-style auto", () => {

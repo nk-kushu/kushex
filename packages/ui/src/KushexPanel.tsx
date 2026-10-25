@@ -4,13 +4,14 @@ import { StyleProvider, ThemeProvider } from "antd-style";
 import { useEffect, useImperativeHandle, useRef, useState, type ReactNode, type Ref } from "react";
 import { Provider } from "react-redux";
 import { useAppSelector } from "./app/hooks";
-import { loadPreferences } from "./app/preferences";
 import { makeStore } from "./app/store";
 import { getAntdTheme } from "./app/theme";
+import { NavigationBridge, PanelRouter, type NavigateTo } from "./app/PanelRouter";
 import { ThemeBridge } from "./app/ThemeBridge";
 import { Workbench } from "./features/workbench/Workbench";
 import {
   colorModeChanged,
+  settingsRequested,
   selectColorMode,
   selectDensity,
   toThemeMode,
@@ -27,44 +28,55 @@ export function KushexPanel({
   instanceId = "default",
   apiBaseUrl,
   colorMode,
+  router,
+  basename,
+  initialPath,
+  onNavigate,
   ref,
   ...rest
 }: KushexPanelProps) {
   const [store] = useState(() => {
-    const settings = loadPreferences(instanceId);
     return makeStore({
       instanceId,
       apiBaseUrl,
-      preloadedState: { settings: colorMode ? { ...settings, colorMode } : settings },
     });
   });
 
-  // Host-controlled color mode wins over the stored preference while it is set.
   useEffect(() => {
-    if (colorMode) store.dispatch(colorModeChanged(colorMode));
-  }, [colorMode, store]);
+    store.dispatch(settingsRequested());
+  }, [store]);
 
+  const navigateRef = useRef<NavigateTo>(null);
   useImperativeHandle(
     ref,
-    () => ({ setColorMode: (mode) => store.dispatch(colorModeChanged(mode)) }),
+    () => ({
+      setColorMode: (mode) => store.dispatch(colorModeChanged(mode)),
+      navigate: (path) => navigateRef.current?.(path),
+    }),
     [store],
   );
 
   return (
     <Provider store={store}>
-      <ThemedPanel {...rest}>
-        <Workbench />
+      <ThemedPanel {...rest} colorMode={colorMode}>
+        <PanelRouter mode={router} basename={basename} initialPath={initialPath}>
+          <NavigationBridge navigateRef={navigateRef} onNavigate={onNavigate} />
+          <Workbench />
+        </PanelRouter>
       </ThemedPanel>
     </Provider>
   );
 }
 
 function ThemedPanel({
+  colorMode: hostColorMode,
   styleContainer,
   className,
   style,
   children,
-}: Pick<KushexPanelProps, "styleContainer" | "className" | "style"> & { children: ReactNode }) {
+}: Pick<KushexPanelProps, "styleContainer" | "className" | "style" | "colorMode"> & {
+  children: ReactNode;
+}) {
   const colorMode = useAppSelector(selectColorMode);
   const density = useAppSelector(selectDensity);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -73,7 +85,11 @@ function ThemedPanel({
     <StyleProvider prefix="kx" container={styleContainer}>
       {/* antd's generated CSS goes into `@layer antd` (after Tailwind base, before utilities). */}
       <CssInJsStyleProvider layer container={styleContainer}>
-        <ThemeProvider themeMode={toThemeMode(colorMode)} theme={getAntdTheme} prefixCls="kx">
+        <ThemeProvider
+          themeMode={toThemeMode(hostColorMode ?? colorMode)}
+          theme={getAntdTheme}
+          prefixCls="kx"
+        >
           <ThemeBridge ref={rootRef} className={className} style={style}>
             <ConfigProvider
               iconPrefixCls="kx-icon"

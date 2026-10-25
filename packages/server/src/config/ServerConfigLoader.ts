@@ -8,8 +8,20 @@ export class ServerConfigLoader {
   private readonly environmentSchema = z.object({
     KUSHEX_WORKSPACES_ROOT: z
       .string()
-      .refine((value) => path.isAbsolute(value), { error: "must be an absolute directory path" })
-      .default(path.resolve("workspaces")),
+      .default(path.resolve("workspaces"))
+      .transform((value) => value.split(",").map((part) => part.trim()))
+      .refine((roots) => roots.every((root) => path.isAbsolute(root)), {
+        error: "must contain comma-separated absolute directory paths",
+      })
+      .refine(
+        (roots) => new Set(roots.map((root) => path.basename(root))).size === roots.length,
+        { error: "must not contain two directories with the same name" },
+      )
+      .refine(
+        (roots) =>
+          roots.every((root) => !["", ".git", "node_modules", "dist"].includes(path.basename(root))),
+        { error: "must not contain the filesystem root or an ignored directory name" },
+      ),
     KUSHEX_ALLOWED_ORIGINS: z
       .string()
       .default(
@@ -69,7 +81,7 @@ export class ServerConfigLoader {
         maxConnections: values.DATABASE_POOL_MAX,
         connectionTimeoutMs: values.DATABASE_CONNECT_TIMEOUT_MS,
       },
-      workspacesRoot: values.KUSHEX_WORKSPACES_ROOT,
+      workspacesRoots: values.KUSHEX_WORKSPACES_ROOT,
       allowedOrigins: values.KUSHEX_ALLOWED_ORIGINS,
       shutdownTimeoutMs: values.SHUTDOWN_TIMEOUT_MS,
       logLevel: values.LOG_LEVEL,

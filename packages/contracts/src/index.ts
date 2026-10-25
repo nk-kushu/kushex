@@ -23,3 +23,14 @@ export type DirectoryPageDto = Page<DirectoryEntryDto>;
 export type FileContentDto = Readonly<{ path: string; size: number }> &
   (Readonly<{ kind: "text"; content: string }> | Readonly<{ kind: "binary" }>);
 export type ApiErrorDto = Readonly<{ code: string; message: string; details?: readonly unknown[] }>;
+
+/** Splitter id → each panel's share of the splitter (0–1, summing to 1). */
+export type SplitterSizesDto = Readonly<Record<string, readonly number[]>>;
+
+export type UserSettingsDto = Readonly<{
+  colorMode: "system" | "light" | "dark";
+  density: "comfortable" | "compact";
+  splitterSizes: SplitterSizesDto;
+}>;
+/** `splitterSizes` merges by splitter id: ids left out keep their saved sizes. */
+export type UpdateUserSettingsRequest = Partial<UserSettingsDto>;

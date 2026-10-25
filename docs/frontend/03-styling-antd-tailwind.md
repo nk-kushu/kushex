@@ -173,7 +173,7 @@ The antd `ThemeConfig` in `app/theme.ts` is the single source of truth:
 import { theme, type ThemeConfig } from "antd";
 
 const shared: ThemeConfig["token"] = {
-  colorPrimary: "#4f46e5",
+  colorPrimary: "#fa8c16",
   borderRadius: 8,
   fontFamily: "Inter, system-ui, sans-serif",
 };

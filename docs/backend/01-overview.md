@@ -29,7 +29,7 @@ application integration is still to be built.
 | `features/files/DiffView.tsx` | Hardcoded before/after with Accept and Reject buttons | Kushibot proposal projections and trusted review/publication integration |
 | `features/files/BottomPanel.tsx` | Static Problems and Output tabs | Views of runtime output, diagnostics, and verification evidence |
 | `features/notes/NotesSide.tsx` and `NotesMain.tsx` | Hardcoded notes, local search and draft text | Persistent Markdown notes, pinning, search, and versioned saves |
-| `features/settings/SettingsScreen.tsx` | Working appearance controls; placeholder General, Project, Agent fields | Host and framework configuration; browser preferences stay local initially |
+| `features/settings/SettingsScreen.tsx` | Working appearance controls; placeholder General, Project, Agent fields | Appearance preferences persist per actor through `GET/PATCH /settings`; host and framework configuration remain separate |
 | `features/workbench/workbenchSlice.ts` | Activity, project name, file/diff tabs, and mobile region | Stable project/workspace IDs; layout state remains in the browser |
 | `features/workbench/StatusBar.tsx` | Hardcoded connection, branch, agent, and cursor text | Actual connection, workspace, and runtime state; cursor position stays local |
 
