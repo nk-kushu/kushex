@@ -10,7 +10,9 @@
     "format": "prettier --write .",
     "test": "pnpm -r test",
     "dev": "pnpm --filter @kushex/standalone dev",
-    "changeset": "changeset"
+    "changeset": "changeset",
+    "typecheck:agent:coding": "tsc -p agents/coding/tsconfig.json",
+    "test:agent:coding": "TSX_TSCONFIG_PATH=agents/coding/tsconfig.json node --import ./packages/server/node_modules/tsx/dist/loader.mjs --test agents/coding/tests/CodingAgent.test.ts"
   },
   "devDependencies": {
     "@changesets/cli": "^3.0.3",

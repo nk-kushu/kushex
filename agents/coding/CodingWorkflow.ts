@@ -18,10 +18,7 @@ import {
   type TaskInput,
   type WorkflowDefinition,
 } from "kushibot";
-import {
-  editingInstructions,
-  planningInstructions,
-} from "./prompts/instructions";
+import { editingInstructions, planningInstructions } from "./prompts/instructions";
 
 /** Owns the plan-before-edit dependency and the policies that pass its accepted result. */
 export class CodingWorkflow {
@@ -159,9 +156,7 @@ class CodingInputPolicy implements IPolicy<StepInputPolicyInput, JsonValue> {
     return this.asJson({
       ...request.value,
       goal: request.value.goal,
-      sourceRefs: [
-        ...new Set([...request.value.sourceRefs, accepted.receiptRef]),
-      ],
+      sourceRefs: [...new Set([...request.value.sourceRefs, accepted.receiptRef])],
     });
   }
 

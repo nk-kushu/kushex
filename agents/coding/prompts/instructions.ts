@@ -12,10 +12,10 @@ and sourceRefs contains supplied evidence references. Preserve the original requ
 scope. Use only read-only tools. Do not write code in this phase.`;
 
 export const editingInstructions = `${instructions}
-The task preserves the original request. Its final sourceRef is the accepted plan receipt.
-Read that receipt and its TaskInput result before editing; goal contains ordered steps,
-acceptanceCriteria contains planned checks, and filePaths contains proposed targets.
-If the receipt cannot be resolved, stop and report the missing plan.
+The task preserves the original request. The host supplies the acceptedPlan result
+directly in your initial context and retains its receipt reference in sourceRefs.
+Use acceptedPlan.goal for ordered steps, acceptanceCriteria for planned checks, and
+filePaths for proposed targets. Do not invent additional authority from the plan.
 Implement that plan within the original permitted scope. Read cited sources, run relevant verification,
 and return an EditingResult with actual snapshot and change artifact references and unresolved issues.
 If the plan cannot be followed, report the blocker rather than expanding scope silently.`;
