@@ -1,7 +1,7 @@
 import {
   JsonValueContract,
   type AgentRunRuntime,
-  type AgentSessionBinding,
+  type IAgentSessionBinding,
   type AgentTaskBindingRequest,
   type EditingResult,
   type IPolicy,
@@ -12,13 +12,13 @@ import type { WorkspaceTools } from "./WorkspaceTools";
 /** Coding-specific context and acceptance; Kushibot owns session/model execution. */
 export class PlanningSessionPolicy implements IPolicy<
   AgentTaskBindingRequest,
-  AgentSessionBinding<TaskInput>
+  IAgentSessionBinding<TaskInput>
 > {
   constructor(
     private readonly runtime: AgentRunRuntime,
     private readonly workspace: WorkspaceTools,
   ) {}
-  async apply(request: AgentTaskBindingRequest): Promise<AgentSessionBinding<TaskInput>> {
+  async apply(request: AgentTaskBindingRequest): Promise<IAgentSessionBinding<TaskInput>> {
     await this.runtime.context.reporter.progress("Planning implementation.");
     const input = await new JsonValueContract().validate({
       task: request.input,
@@ -45,13 +45,13 @@ export class PlanningSessionPolicy implements IPolicy<
 
 export class EditingSessionPolicy implements IPolicy<
   AgentTaskBindingRequest,
-  AgentSessionBinding<EditingResult>
+  IAgentSessionBinding<EditingResult>
 > {
   constructor(
     private readonly runtime: AgentRunRuntime,
     private readonly workspace: WorkspaceTools,
   ) {}
-  async apply(request: AgentTaskBindingRequest): Promise<AgentSessionBinding<EditingResult>> {
+  async apply(request: AgentTaskBindingRequest): Promise<IAgentSessionBinding<EditingResult>> {
     await this.runtime.context.reporter.progress("Implementing accepted plan.");
     const snapshot = await this.runtime.stores.workflow.read();
     const plan = snapshot.accepted.find((item) => item.stepId === "plan");

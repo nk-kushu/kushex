@@ -3,8 +3,8 @@ import {
   JsonValueContract,
   TaskInputContract,
   WorkflowPolicyRegistry,
-  type AgentSetupInput,
-  type AgentWorkflow,
+  type IAgentSetupInput,
+  type IAgentWorkflow,
   type EditingResult,
   type IPolicy,
   type TaskInput,
@@ -16,8 +16,8 @@ import { WorkspaceTools } from "./WorkspaceTools";
 
 /** Application-owned plan/edit behavior; no engine, model loop, or stores are implemented here. */
 export class CodingAgentDefinition implements IPolicy<
-  AgentSetupInput<TaskInput>,
-  AgentWorkflow<EditingResult>
+  IAgentSetupInput<TaskInput>,
+  IAgentWorkflow<EditingResult>
 > {
   private readonly checks: readonly CodingCheck[];
   constructor(
@@ -37,7 +37,7 @@ export class CodingAgentDefinition implements IPolicy<
   async apply({
     task,
     runtime,
-  }: AgentSetupInput<TaskInput>): Promise<AgentWorkflow<EditingResult>> {
+  }: IAgentSetupInput<TaskInput>): Promise<IAgentWorkflow<EditingResult>> {
     if (task.filePaths.length === 0) throw new Error("Provide explicit file paths.");
     if (task.sourceRefs.length !== 0)
       throw new Error(

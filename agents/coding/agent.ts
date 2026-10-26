@@ -16,6 +16,7 @@ import type { CodingAgentOptions } from "./CodingAgentOptions";
 /** Coding is a configuration of the generic Kushibot Agent, without a subclass. */
 export function createCodingAgent(options: CodingAgentOptions): Agent<TaskInput, EditingResult> {
   const { workspace, checks, ...runtime } = options;
+
   return new Agent({
     id: "coding",
     requestContract: new TaskInputContract(new JsonValueContract()),
