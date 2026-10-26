@@ -1,4 +1,5 @@
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { ConfigurationError } from "../errors/ConfigurationError.js";
 import { ServerConfigLoader } from "./ServerConfigLoader.js";
@@ -22,6 +23,8 @@ describe("ServerConfigLoader", () => {
       http: { host: "127.0.0.1", port: 3000 },
       database: { url: databaseUrl, maxConnections: 10, connectionTimeoutMs: 5000 },
       workspacesRoots: [path.resolve("workspaces")],
+      agentsDirectory: fileURLToPath(new URL("../../../../agents", import.meta.url)),
+      kushibotDirectory: null,
       allowedOrigins: [
         "http://localhost:5173",
         "http://127.0.0.1:5173",

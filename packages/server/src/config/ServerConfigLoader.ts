@@ -1,4 +1,5 @@
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { z } from "zod";
 import { ConfigurationError } from "../errors/ConfigurationError.js";
 import type { ServerConfig } from "./ServerConfig.js";
@@ -22,6 +23,17 @@ export class ServerConfigLoader {
           roots.every((root) => !["", ".git", "node_modules", "dist"].includes(path.basename(root))),
         { error: "must not contain the filesystem root or an ignored directory name" },
       ),
+    // The kushex repository root from both src/config and dist/config.
+    KUSHEX_AGENTS_DIR: z
+      .string()
+      .default(fileURLToPath(new URL("../../../../agents", import.meta.url)))
+      .refine((value) => path.isAbsolute(value), { error: "must be an absolute directory path" }),
+    KUSHEX_KUSHIBOT_DIR: z
+      .string()
+      .optional()
+      .refine((value) => value === undefined || path.isAbsolute(value), {
+        error: "must be an absolute directory path",
+      }),
     KUSHEX_ALLOWED_ORIGINS: z
       .string()
       .default(
@@ -82,6 +94,8 @@ export class ServerConfigLoader {
         connectionTimeoutMs: values.DATABASE_CONNECT_TIMEOUT_MS,
       },
       workspacesRoots: values.KUSHEX_WORKSPACES_ROOT,
+      agentsDirectory: values.KUSHEX_AGENTS_DIR,
+      kushibotDirectory: values.KUSHEX_KUSHIBOT_DIR ?? null,
       allowedOrigins: values.KUSHEX_ALLOWED_ORIGINS,
       shutdownTimeoutMs: values.SHUTDOWN_TIMEOUT_MS,
       logLevel: values.LOG_LEVEL,

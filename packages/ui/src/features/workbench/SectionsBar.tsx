@@ -5,7 +5,7 @@ import { borderT } from "../../shared/lib/styles";
 import { paths, useActivity } from "./navigation";
 import { mobileViewChanged, selectMobileView, selectProjectId } from "./workbenchSlice";
 
-type MobileTab = "projects" | "files" | "tasks" | "notes" | "chat";
+type MobileTab = "projects" | "files" | "tasks" | "notes" | "agents" | "chat";
 
 /** Narrow screens switch pages, and the chat, from a bottom bar. */
 export function SectionsBar() {
@@ -18,7 +18,9 @@ export function SectionsBar() {
   const select = (tab: MobileTab) => {
     if (tab === "chat") return dispatch(mobileViewChanged("chat"));
     void navigate(tab === "files" ? paths.files(projectId) : paths[tab]());
-    dispatch(mobileViewChanged(tab === "files" || tab === "notes" ? "side" : "main"));
+    dispatch(
+      mobileViewChanged(tab === "files" || tab === "notes" || tab === "agents" ? "side" : "main"),
+    );
   };
   return (
     <nav aria-label="Sections" className={`kx:bg-surface kx:p-2 ${borderT}`}>
@@ -31,6 +33,7 @@ export function SectionsBar() {
           { label: "Files", value: "files" },
           { label: "Tasks", value: "tasks" },
           { label: "Notes", value: "notes" },
+          { label: "Agents", value: "agents" },
           { label: "Chat", value: "chat" },
         ]}
       />

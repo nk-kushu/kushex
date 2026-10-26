@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { Navigate, Route, Routes, useNavigate, useParams } from "react-router";
 import { useAppDispatch, useAppSelector } from "../../app/hooks";
+import { AgentsPage } from "../agents/AgentsPage";
 import { FilesMain } from "../files/FilesMain";
 import { FilesSide } from "../files/FilesSide";
 import { NotesMain } from "../notes/NotesMain";
@@ -64,6 +65,7 @@ export function WorkbenchRoutes() {
       <Route path="files" element={<FilesPage />} />
       <Route path="tasks/:taskId?" element={<Panes main={<TasksScreen />} />} />
       <Route path="notes/:noteId?" element={<NotesPage />} />
+      <Route path="agents/:agentName?" element={<AgentsPage />} />
       <Route path="settings" element={<Panes main={<SettingsScreen />} />} />
       <Route path="*" element={<Navigate to={paths.projects()} replace />} />
     </Routes>

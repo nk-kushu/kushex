@@ -35,6 +35,17 @@ To offer folders from several roots, list them in a local override such as
 the Compose command.
 See [projects and workspaces](docs/backend/05-projects-and-workspaces.md).
 
+### Agents
+
+The **Agents** activity creates and edits agents as code in a Monaco editor. Each
+agent is a folder in [`agents/`](agents/README.md) whose primary file,
+`<name>/agent.ts`, default-exports a kushibot-based agent; every text file in the
+folder can be edited, and new files added, from the panel. The directory is
+mounted read-write into the backend as `/agents` (`KUSHEX_AGENTS_DIR`). To
+type-check `import ... from "kushibot"` in the editor, set `KUSHEX_KUSHIBOT_DIR` to
+a built kushibot checkout visible to the backend, for example in
+`docker/compose.local.yml`; without it the editor works untyped.
+
 Open <http://localhost:3050>. Backend liveness is <http://localhost:3050/api/health>
 and readiness (database and migrations) is <http://localhost:3050/api/health/ready>.
 The backend and PostgreSQL use the internal Docker network. Only the frontend

@@ -1,4 +1,4 @@
-import Editor, { type OnChange, type OnMount } from "@monaco-editor/react";
+import Editor, { type BeforeMount, type OnChange, type OnMount } from "@monaco-editor/react";
 import { Spin } from "antd";
 import { useThemeMode } from "antd-style";
 import type { editor } from "monaco-editor";
@@ -41,6 +41,10 @@ export type CodeEditorProps = Readonly<{
   /** Defaults to true: the editor is a viewer unless a caller opts in to editing. */
   readOnly?: boolean;
   onChange?: (value: string) => void;
+  /** Runs once Monaco is loaded, before the model is created; configure languages here. */
+  beforeMount?: BeforeMount;
+  /** Keep the model after unmount; for callers that own and dispose their models. */
+  keepCurrentModel?: boolean;
   onMount?: OnMount;
   ariaLabel?: string;
   options?: editor.IStandaloneEditorConstructionOptions;
@@ -54,6 +58,8 @@ export function CodeEditor({
   language,
   readOnly = true,
   onChange,
+  beforeMount,
+  keepCurrentModel,
   onMount,
   ariaLabel,
   options,
@@ -71,6 +77,8 @@ export function CodeEditor({
         theme={isDarkMode ? "vs-dark" : "light"}
         loading={<Spin aria-label="Loading editor" />}
         onChange={handleChange}
+        beforeMount={beforeMount}
+        keepCurrentModel={keepCurrentModel}
         onMount={onMount}
         options={{
           readOnly,

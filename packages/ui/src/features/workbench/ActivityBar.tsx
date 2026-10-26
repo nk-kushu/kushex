@@ -3,7 +3,14 @@ import type { Icon } from "@tabler/icons-react";
 import { useNavigate } from "react-router";
 import { useAppSelector } from "../../app/hooks";
 import { AppIcon } from "../../shared/components/AppIcon";
-import { FilesIcon, NotesIcon, ProjectsIcon, SettingsIcon, TasksIcon } from "../../shared/lib/icons";
+import {
+  AgentsIcon,
+  FilesIcon,
+  NotesIcon,
+  ProjectsIcon,
+  SettingsIcon,
+  TasksIcon,
+} from "../../shared/lib/icons";
 import { borderR } from "../../shared/lib/styles";
 import { paths, useActivity, type Activity } from "./navigation";
 import { selectProjectId } from "./workbenchSlice";
@@ -13,6 +20,7 @@ const top: readonly { key: Activity; label: string; icon: Icon }[] = [
   { key: "files", label: "Files", icon: FilesIcon },
   { key: "tasks", label: "Tasks", icon: TasksIcon },
   { key: "notes", label: "Notes", icon: NotesIcon },
+  { key: "agents", label: "Agents", icon: AgentsIcon },
 ];
 
 function ActivityButton({ item }: Readonly<{ item: { key: Activity; label: string; icon: Icon } }>) {

@@ -8,6 +8,7 @@ import {
   IconPaperclip,
   IconPin,
   IconPlus,
+  IconRobot,
   IconSearch,
   IconSettings,
   IconUser,
@@ -18,6 +19,7 @@ export const ProjectsIcon = IconLayoutGrid;
 export const FilesIcon = IconFiles;
 export const TasksIcon = IconChecklist;
 export const NotesIcon = IconNotes;
+export const AgentsIcon = IconRobot;
 export const SettingsIcon = IconSettings;
 export const AddIcon = IconPlus;
 export const SearchIcon = IconSearch;

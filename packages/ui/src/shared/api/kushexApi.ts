@@ -1,11 +1,18 @@
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 import type {
+  AgentDto,
+  AgentFileDto,
+  AgentSummaryDto,
+  CreateAgentFileRequest,
+  CreateAgentRequest,
   CreateProjectRequest,
+  LibraryTypesDto,
   DirectoryPageDto,
   FileContentDto,
   Page,
   ProjectDto,
   UserSettingsDto,
+  UpdateAgentFileRequest,
   UpdateUserSettingsRequest,
 } from "@kushex/contracts";
 import type { StoreOptions } from "../../app/storeOptions";
@@ -23,7 +30,7 @@ export const kushexApi = createApi({
       cache: "no-store",
     })(args, api, extraOptions);
   },
-  tagTypes: ["Projects"],
+  tagTypes: ["Projects", "Agents"],
   keepUnusedDataFor: 0,
   endpoints: (build) => ({
     settings: build.query<UserSettingsDto, void>({
@@ -59,6 +66,36 @@ export const kushexApi = createApi({
         params: { path },
       }),
     }),
+    agents: build.query<Page<AgentSummaryDto>, void>({
+      query: () => "/agents",
+      providesTags: ["Agents"],
+    }),
+    agent: build.query<AgentDto, string>({
+      query: (name) => `/agents/${encodeURIComponent(name)}`,
+    }),
+    createAgent: build.mutation<AgentDto, CreateAgentRequest>({
+      query: (body) => ({ url: "/agents", method: "POST", body }),
+      invalidatesTags: ["Agents"],
+    }),
+    // The editor keeps saved revisions itself, so file mutations do not refetch the agent.
+    createAgentFile: build.mutation<AgentFileDto, CreateAgentFileRequest & { name: string }>({
+      query: ({ name, ...body }) => ({
+        url: `/agents/${encodeURIComponent(name)}/files`,
+        method: "POST",
+        body,
+      }),
+    }),
+    updateAgentFile: build.mutation<AgentFileDto, UpdateAgentFileRequest & { name: string }>({
+      query: ({ name, ...body }) => ({
+        url: `/agents/${encodeURIComponent(name)}/files`,
+        method: "PUT",
+        body,
+      }),
+      invalidatesTags: ["Agents"],
+    }),
+    kushibotTypes: build.query<LibraryTypesDto, void>({
+      query: () => "/kushibot/types",
+    }),
   }),
 });
 export const {
@@ -69,4 +106,10 @@ export const {
   useTreeQuery,
   useLazyTreeQuery,
   useFileQuery,
+  useAgentsQuery,
+  useAgentQuery,
+  useCreateAgentMutation,
+  useCreateAgentFileMutation,
+  useUpdateAgentFileMutation,
+  useKushibotTypesQuery,
 } = kushexApi;

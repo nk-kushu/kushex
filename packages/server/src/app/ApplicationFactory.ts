@@ -16,6 +16,13 @@ import {
   LocationsController,
 } from "../modules/workspaces/public.js";
 import { FileService, FilesController } from "../modules/files/public.js";
+import {
+  AgentService,
+  AgentTemplate,
+  AgentsController,
+  KushibotTypesReader,
+  LocalAgentStore,
+} from "../modules/agents/public.js";
 import { RequestContextFactory } from "../transport/http/RequestContextFactory.js";
 import { LocalOperatorActorResolver } from "../transport/http/LocalOperatorActorResolver.js";
 import { LocalRequestGuard } from "../transport/http/LocalRequestGuard.js";
@@ -81,6 +88,13 @@ export class ApplicationFactory {
         new LocationsController(workspaces, contexts),
         new ProjectsController(projects, contexts),
         new FilesController(files, contexts),
+        new AgentsController(
+          new AgentService(
+            new LocalAgentStore(this.config.agentsDirectory),
+            new AgentTemplate(),
+            new KushibotTypesReader(this.config.kushibotDirectory),
+          ),
+        ),
       ],
       new LocalRequestGuard(this.config.allowedOrigins),
     );

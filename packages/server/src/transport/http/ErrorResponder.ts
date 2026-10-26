@@ -1,5 +1,6 @@
 import { NotFoundError } from "../../errors/NotFoundError.js";
 import { ForbiddenError } from "../../errors/ForbiddenError.js";
+import { ConflictError } from "../../errors/ConflictError.js";
 import { PayloadTooLargeError } from "../../errors/PayloadTooLargeError.js";
 import type { FastifyReply, FastifyRequest } from "fastify";
 import type { Logger } from "../../shared/application/Logger.js";
@@ -24,6 +25,8 @@ export class ErrorResponder {
       return this.send(reply, 404, { code: "NOT_FOUND", message: error.message });
     if (error instanceof ForbiddenError)
       return this.send(reply, 403, { code: "FORBIDDEN", message: error.message });
+    if (error instanceof ConflictError)
+      return this.send(reply, 409, { code: "CONFLICT", message: error.message });
     if (error instanceof PayloadTooLargeError)
       return this.send(reply, 413, {
         code: "PAYLOAD_TOO_LARGE",

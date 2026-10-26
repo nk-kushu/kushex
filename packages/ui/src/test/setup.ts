@@ -34,10 +34,25 @@ globalThis.ResizeObserver ??= class {
   disconnect() {}
 } as unknown as typeof ResizeObserver;
 
-// Monaco needs real layout and web workers; render its value as plain text instead.
+// Monaco needs real layout and web workers; render its value as plain text instead,
+// or as a textarea when the editor accepts edits.
 vi.mock("@monaco-editor/react", () => ({
-  default: ({ value, options }: { value?: string; options?: { ariaLabel?: string } }) =>
-    createElement("pre", { "aria-label": options?.ariaLabel }, value),
+  default: ({
+    value,
+    options,
+    onChange,
+  }: {
+    value?: string;
+    options?: { ariaLabel?: string; readOnly?: boolean };
+    onChange?: (value: string) => void;
+  }) =>
+    options?.readOnly === false
+      ? createElement("textarea", {
+          "aria-label": options.ariaLabel,
+          value,
+          onChange: (event: { target: { value: string } }) => onChange?.(event.target.value),
+        })
+      : createElement("pre", { "aria-label": options?.ariaLabel }, value),
 }));
 
 beforeEach(() => {
