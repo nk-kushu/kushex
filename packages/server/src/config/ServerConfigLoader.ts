@@ -14,13 +14,14 @@ export class ServerConfigLoader {
       .refine((roots) => roots.every((root) => path.isAbsolute(root)), {
         error: "must contain comma-separated absolute directory paths",
       })
-      .refine(
-        (roots) => new Set(roots.map((root) => path.basename(root))).size === roots.length,
-        { error: "must not contain two directories with the same name" },
-      )
+      .refine((roots) => new Set(roots.map((root) => path.basename(root))).size === roots.length, {
+        error: "must not contain two directories with the same name",
+      })
       .refine(
         (roots) =>
-          roots.every((root) => !["", ".git", "node_modules", "dist"].includes(path.basename(root))),
+          roots.every(
+            (root) => !["", ".git", "node_modules", "dist"].includes(path.basename(root)),
+          ),
         { error: "must not contain the filesystem root or an ignored directory name" },
       ),
     // The kushex repository root from both src/config and dist/config.
@@ -28,7 +29,17 @@ export class ServerConfigLoader {
       .string()
       .default(fileURLToPath(new URL("../../../../agents", import.meta.url)))
       .refine((value) => path.isAbsolute(value), { error: "must be an absolute directory path" }),
+    KUSHEX_PLUGINS_DIR: z
+      .string()
+      .default(fileURLToPath(new URL("../../../../plugins", import.meta.url)))
+      .refine((value) => path.isAbsolute(value), { error: "must be an absolute directory path" }),
     KUSHEX_KUSHIBOT_DIR: z
+      .string()
+      .optional()
+      .refine((value) => value === undefined || path.isAbsolute(value), {
+        error: "must be an absolute directory path",
+      }),
+    KUSHEX_ARTIFACTS_DIR: z
       .string()
       .optional()
       .refine((value) => value === undefined || path.isAbsolute(value), {
@@ -95,7 +106,9 @@ export class ServerConfigLoader {
       },
       workspacesRoots: values.KUSHEX_WORKSPACES_ROOT,
       agentsDirectory: values.KUSHEX_AGENTS_DIR,
+      pluginsDirectory: values.KUSHEX_PLUGINS_DIR,
       kushibotDirectory: values.KUSHEX_KUSHIBOT_DIR ?? null,
+      ...(values.KUSHEX_ARTIFACTS_DIR ? { artifactsDirectory: values.KUSHEX_ARTIFACTS_DIR } : {}),
       allowedOrigins: values.KUSHEX_ALLOWED_ORIGINS,
       shutdownTimeoutMs: values.SHUTDOWN_TIMEOUT_MS,
       logLevel: values.LOG_LEVEL,

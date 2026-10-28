@@ -36,8 +36,31 @@ export function FilesSide() {
 }
 
 function WorkspaceTree({ projectId }: Readonly<{ projectId: string }>) {
-  const dispatch = useAppDispatch();
   const root = useTreeQuery({ projectId, path: "" }, { refetchOnMountOrArgChange: true });
+  if (root.isLoading) return <Spin aria-label="Loading files" />;
+  if (root.error)
+    return (
+      <Alert
+        type="error"
+        title={errorMessage(root.error)}
+        action={<Button onClick={() => void root.refetch()}>Retry</Button>}
+      />
+    );
+  return root.currentData ? (
+    <WorkspaceTreePages
+      key={root.fulfilledTimeStamp}
+      projectId={projectId}
+      initial={root.currentData}
+    />
+  ) : null;
+}
+
+/** Rebuilt when the root query refreshes so loaded children cannot retain old contents. */
+function WorkspaceTreePages({
+  projectId,
+  initial,
+}: Readonly<{ projectId: string; initial: DirectoryPageDto }>) {
+  const dispatch = useAppDispatch();
   const [fetchDirectory] = useLazyTreeQuery();
   const [pages, setPages] = useState<Map<string, DirectoryPageDto>>(() => new Map());
   const [error, setError] = useState<string | null>(null);
@@ -51,9 +74,7 @@ function WorkspaceTree({ projectId }: Readonly<{ projectId: string }>) {
         new Map(current).set(path, {
           entries: offset
             ? [
-                ...(current.get(path)?.entries ??
-                  (path === "" ? root.currentData?.entries : []) ??
-                  []),
+                ...(current.get(path)?.entries ?? (path === "" ? initial.entries : []) ?? []),
                 ...page.entries,
               ]
             : page.entries,
@@ -97,16 +118,7 @@ function WorkspaceTree({ projectId }: Readonly<{ projectId: string }>) {
       });
     return result;
   };
-  if (root.isLoading) return <Spin aria-label="Loading files" />;
-  if (root.error)
-    return (
-      <Alert
-        type="error"
-        title={errorMessage(root.error)}
-        action={<Button onClick={() => void root.refetch()}>Retry</Button>}
-      />
-    );
-  const rootPage = pages.get("") ?? root.currentData;
+  const rootPage = pages.get("") ?? initial;
   return (
     <>
       {error && <Alert closable onClose={() => setError(null)} type="error" title={error} />}

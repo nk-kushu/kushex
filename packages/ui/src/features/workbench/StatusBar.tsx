@@ -20,7 +20,7 @@ export function StatusBar() {
             : "no project"}
       </Typography.Text>
       <Typography.Text type="secondary" className="kx:ml-auto kx:text-xs">
-        Read-only workspace
+        Project workspace
       </Typography.Text>
     </footer>
   );

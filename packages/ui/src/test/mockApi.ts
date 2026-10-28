@@ -1,6 +1,8 @@
 import { vi } from "vitest";
 import type {
   AgentDto,
+  PluginDto,
+  CodingProposalReviewDto,
   AgentFileDto,
   AgentRunDto,
   AgentRunEventDto,
@@ -49,6 +51,7 @@ export function mockKushexApi(
   initialProjects: ProjectDto[] = [exampleProject],
   initialAgents: AgentDto[] = [],
   initialNotes: Record<string, string> = {},
+  initialPlugins: PluginDto[] = [],
 ) {
   const projects = [...initialProjects];
   const agents = new Map(initialAgents.map((agent) => [agent.name, agent]));
@@ -59,6 +62,9 @@ export function mockKushexApi(
   );
   /** Bodies of started agent runs, in order. */
   const runs: Record<string, unknown>[] = [];
+  const proposals: Record<string, CodingProposalReviewDto> = {};
+  const proposalApplies: { runId: string; digest: string }[] = [];
+  const proposalChecks: { runId: string; digest: string }[] = [];
   const threads: {
     id: string;
     projectId: string;
@@ -117,6 +123,7 @@ export function mockKushexApi(
         version: "0.0.0",
         files: [{ path: "index.d.ts", content: "export declare const ok: true;" }],
       });
+    if (route === "/plugins") return respond({ entries: initialPlugins, nextOffset: null });
     if (route === "/agents" && request.method === "POST") {
       const { name } = (await request.json()) as { name: string };
       if (agents.has(name))
@@ -134,7 +141,15 @@ export function mockKushexApi(
     }
     if (route === "/agents")
       return respond({
-        entries: [...agents.values()].map(({ name, updatedAt }) => ({ name, updatedAt })),
+        entries: [...agents.values()].map(
+          ({ name, updatedAt, displayName, description, plugin }) => ({
+            name,
+            updatedAt,
+            displayName,
+            description,
+            plugin,
+          }),
+        ),
         nextOffset: null,
       });
     const notesRoute = /^\/agents\/([^/]+)\/notes$/.exec(route);
@@ -207,6 +222,46 @@ export function mockKushexApi(
             threads.splice(index, 1);
         return new Response(null, { status: 204 });
       }
+    }
+    const proposalRoute =
+      /^\/projects\/([^/]+)\/agent-runs\/([^/]+)\/proposal(?:\/(apply|reconcile))?$/.exec(route);
+    if (proposalRoute) {
+      const runId = proposalRoute[2]!;
+      const proposal = proposals[runId];
+      if (!proposal)
+        return respond({ code: "NOT_FOUND", message: "Coding proposal not found." }, 404);
+      if (proposalRoute[3]) {
+        const body = (await request.json()) as { digest: string };
+        (proposalRoute[3] === "apply" ? proposalApplies : proposalChecks).push({
+          runId,
+          digest: body.digest,
+        });
+        if (body.digest !== proposal.digest)
+          return respond({ code: "CONFLICT", message: "Proposal changed." }, 409);
+        if (proposal.status === "ready" && proposalRoute[3] === "apply") {
+          for (const change of proposal.changes) {
+            if (change.after === null) delete files[change.path];
+            else
+              files[change.path] = {
+                path: change.path,
+                kind: "text",
+                content: change.after,
+                size: change.after.length,
+              };
+          }
+          proposals[runId] = { ...proposal, status: "applied" };
+        }
+        return respond({
+          status: proposal.status === "pending" ? "pending" : "recorded",
+          effect:
+            proposals[runId]!.status === "applied"
+              ? { status: "published", receipt: {} }
+              : proposal.status === "not-applied"
+                ? { status: "not-applied", code: proposal.code }
+                : null,
+        });
+      }
+      return respond(request.method === "POST" ? { proposal: { id: proposal.id } } : proposal);
     }
     const startRun = /^\/projects\/([^/]+)\/agent-runs$/.exec(route);
     if (startRun && request.method === "POST") {
@@ -315,6 +370,9 @@ export function mockKushexApi(
     agents,
     notes,
     runs,
+    proposals,
+    proposalApplies,
+    proposalChecks,
     threads,
     debugRequests,
     variables,

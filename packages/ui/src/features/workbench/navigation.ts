@@ -2,7 +2,7 @@ import { matchPath, useLocation, useNavigate } from "react-router";
 import { useAppDispatch, useAppSelector } from "../../app/hooks";
 import { fileTabOpened, projectOpened, selectProjectId, type FileTab } from "./workbenchSlice";
 
-export type Activity = "projects" | "files" | "tasks" | "notes" | "agents" | "settings";
+export type Activity = "projects" | "files" | "tasks" | "notes" | "agents" | "plugins" | "settings";
 
 /** Every page of the panel has its own route; build links only through these helpers. */
 export const paths = {
@@ -17,6 +17,7 @@ export const paths = {
   tasks: (taskId?: string) => (taskId ? `/tasks/${encodeURIComponent(taskId)}` : "/tasks"),
   notes: (noteId?: string) => (noteId ? `/notes/${encodeURIComponent(noteId)}` : "/notes"),
   agents: (name?: string) => (name ? `/agents/${encodeURIComponent(name)}` : "/agents"),
+  plugins: (id?: string) => (id ? `/plugins/${encodeURIComponent(id)}` : "/plugins"),
   settings: () => "/settings",
 } as const;
 
@@ -29,6 +30,7 @@ const activityPatterns: readonly [Activity, string][] = [
   ["tasks", "/tasks/*"],
   ["notes", "/notes/*"],
   ["agents", "/agents/*"],
+  ["plugins", "/plugins/*"],
   ["settings", "/settings/*"],
 ];
 

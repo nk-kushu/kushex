@@ -36,7 +36,33 @@ export type UserSettingsDto = Readonly<{
 export type UpdateUserSettingsRequest = Partial<UserSettingsDto>;
 
 /** An agent is a folder `agents/<name>/` whose primary file `agent.ts` exports a kushibot-based agent. */
-export type AgentSummaryDto = Readonly<{ name: string; updatedAt: string }>;
+export type PluginAgentContribution = Readonly<{
+  id: string;
+  name: string;
+  description?: string;
+  directory: string;
+  entry: string;
+}>;
+export type PluginManifest = Readonly<{
+  id: string;
+  name: string;
+  version: string;
+  apiVersion: 1;
+  agents: readonly PluginAgentContribution[];
+}>;
+export type AgentPluginMetadata = Readonly<{
+  displayName?: string;
+  description?: string;
+  plugin?: Readonly<{ id: string; name: string }>;
+}>;
+export type PluginDto = Readonly<{
+  id: string;
+  name: string;
+  version: string;
+  agents: readonly PluginAgentContribution[];
+  errors: readonly string[];
+}>;
+export type AgentSummaryDto = Readonly<{ name: string; updatedAt: string }> & AgentPluginMetadata;
 /**
  * One file in an agent folder; `path` is relative to the folder, e.g. `prompts/review.md`.
  * Only text files within the size limit carry content and can be edited.
@@ -57,7 +83,8 @@ export type AgentDto = Readonly<{
   primaryFile: string;
   updatedAt: string;
   files: readonly AgentFileDto[];
-}>;
+}> &
+  AgentPluginMetadata;
 /** Lowercase letters, digits and dashes, starting with a letter (at most 63 characters). */
 export type CreateAgentRequest = Readonly<{ name: string }>;
 /** Folder-relative path; segments use letters, digits, `.`, `_` and `-` and cannot start with a dot. */
@@ -114,6 +141,22 @@ export type ChatTurnDto = Readonly<{
   events: readonly AgentRunEventDto[];
 }>;
 export type ChatThreadDetailDto = ChatThreadDto & Readonly<{ turns: readonly ChatTurnDto[] }>;
+/** Recorded file versions and publication state for a coding proposal. */
+export type CodingProposalReviewDto = Readonly<{
+  id: string;
+  digest: string;
+  summary: string;
+  status: "ready" | "pending" | "applied" | "not-applied";
+  code?: string;
+  changes: readonly Readonly<{ path: string; before: string | null; after: string | null }>[];
+}>;
+export type CodingPublicationResultDto = Readonly<{
+  status: "recorded" | "pending" | "waiting-for-approval" | "blocked" | "stopped";
+  effect:
+    | Readonly<{ status: "published"; receipt: Readonly<Record<string, string>> }>
+    | Readonly<{ status: "not-applied"; code: string }>
+    | null;
+}>;
 export type AgentRunStatus =
   "starting" | "running" | "paused" | "completed" | "failed" | "cancelled";
 export type AgentRunDto = Readonly<{

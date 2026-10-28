@@ -35,6 +35,9 @@ export class AgentRunService implements ManagedResource {
     private readonly debugEvents: DebugEventRecorder | null = null,
     limits: Partial<Limits> = {},
     private readonly threads: ChatThreads | null = null,
+    private readonly codingProposals: Readonly<{
+      create(context: RequestContext, projectId: string, runId: string): Promise<unknown>;
+    }> | null = null,
   ) {
     this.limits = { maxActiveRuns: 4, maxKeptRuns: 50, ...limits };
   }
@@ -55,7 +58,18 @@ export class AgentRunService implements ManagedResource {
     const run = new AgentRun(context.actor.id, projectId, request.agentName, request.debug);
     if (request.threadId) {
       if (!this.threads) throw new ConflictError("Chat thread storage is unavailable.");
-      await this.threads.record(context, projectId, request.threadId, run, request);
+      await this.threads.record(
+        context,
+        projectId,
+        request.threadId,
+        run,
+        request,
+        this.codingProposals
+          ? async () => {
+              await this.codingProposals!.create(context, projectId, run.id);
+            }
+          : undefined,
+      );
     }
     this.keep(run);
     const process = this.launcher.launch({

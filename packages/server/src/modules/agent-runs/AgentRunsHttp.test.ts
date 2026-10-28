@@ -1,3 +1,4 @@
+import { PluginCatalog } from "../plugins/PluginCatalog.js";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -17,12 +18,7 @@ import { HttpServer } from "../../transport/http/HttpServer.js";
 import { LocalOperatorActorResolver } from "../../transport/http/LocalOperatorActorResolver.js";
 import { LocalRequestGuard } from "../../transport/http/LocalRequestGuard.js";
 import { RequestContextFactory } from "../../transport/http/RequestContextFactory.js";
-import {
-  AgentService,
-  AgentTemplate,
-  KushibotTypesReader,
-  LocalAgentStore,
-} from "../agents/public.js";
+import { AgentService, AgentTemplate, KushibotTypesReader } from "../agents/public.js";
 import { ProjectService } from "../projects/public.js";
 import {
   LocalWorkspaceFileSystem,
@@ -59,6 +55,7 @@ export function shout(words: Words): string {
 
 let fixture: WorkspaceFixture;
 let agentsDirectory: string;
+let echo: string;
 let service: AgentRunService;
 let server: HttpServer;
 let base: string;
@@ -70,11 +67,25 @@ beforeEach(async () => {
   agentsDirectory = await mkdtemp(path.join(tmpdir(), "kushex-run-agents-"));
   // As in the repository's agents/: agent sources are ES modules.
   await writeFile(path.join(agentsDirectory, "package.json"), '{ "type": "module" }\n');
-  await mkdir(path.join(agentsDirectory, "echo"));
-  await writeFile(path.join(agentsDirectory, "echo/agent.ts"), ECHO_AGENT);
-  await writeFile(path.join(agentsDirectory, "echo/shout.ts"), SHOUT);
+  const external = path.join(agentsDirectory, "plugins/development");
+  echo = path.join(external, "sources/echo-source");
+  await mkdir(echo, { recursive: true });
+  await writeFile(path.join(echo, "agent.ts"), ECHO_AGENT);
+  await writeFile(path.join(echo, "shout.ts"), SHOUT);
   await mkdir(path.join(agentsDirectory, "silent"));
   await writeFile(path.join(agentsDirectory, "silent/agent.ts"), "export default {};\n");
+  await writeFile(
+    path.join(external, "kushex-plugin.json"),
+    JSON.stringify({
+      id: "development",
+      name: "Development Agents",
+      version: "1.0.0",
+      apiVersion: 1,
+      agents: [{ id: "echo", name: "Echo", directory: "sources/echo-source", entry: "agent.ts" }],
+    }),
+  );
+  const catalog = new PluginCatalog(agentsDirectory, path.join(agentsDirectory, "plugins"));
+  await catalog.start();
   const repository = new InMemoryProjectRepository();
   const paths = new WorkspacePathResolver(fixture.roots);
   const workspaces = new WorkspaceService(repository, new LocalWorkspaceFileSystem(paths));
@@ -83,11 +94,7 @@ beforeEach(async () => {
   service = new AgentRunService(
     workspaces,
     paths,
-    new AgentService(
-      new LocalAgentStore(agentsDirectory),
-      new AgentTemplate(),
-      new KushibotTypesReader(null),
-    ),
+    new AgentService(catalog, new AgentTemplate(), new KushibotTypesReader(null)),
     new ChildProcessAgentLauncher(null, logger),
   );
   project = await new ProjectService(repository, workspaces).create(
@@ -291,7 +298,7 @@ export async function chat(request: ChatRequest) {
   return shout(request.files);
 }
 `;
-    await writeFile(path.join(agentsDirectory, "echo/agent.ts"), source);
+    await writeFile(path.join(echo, "agent.ts"), source);
     const line = source.split("\n").findIndex((text) => text.includes("if (request.files")) + 1;
     const run = await launch({
       agentName: "echo",

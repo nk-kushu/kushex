@@ -66,10 +66,12 @@ token-budget and CLI-session limitations.
 
 Programmatic callers supply an initialized Kushibot artifact writer, such as
 `SqliteArtifactStoreFactory(...).create(producer).store` after initializing its schema.
-Configure its capture policy for `application/json` and allow up to 1 MiB per change
+Configure its capture policy for `application/json` and `text/plain` (for publication content) and allow up to 1 MiB per change
 (the JSON contains both file versions). See [Kushibot's artifact example](../../../kushibot/examples/artifacts/main.ts).
 
-Local `chat()` defaults to Kushibot's SQLite artifact store in
+`KUSHEX_ARTIFACTS_DIR` can select a shared artifact directory; the server must use the same location.
+
+Local `chat()` defaults to Kushibot's `LocalWorkspaceArtifacts` SQLite store in
 `~/.kushex/artifacts/<workspace-hash>.sqlite`, outside the editable workspace.
 Artifacts persist after the run; the connection closes when chat finishes.
 A host can override this with `request.artifacts`. The default store bounds each
@@ -81,8 +83,8 @@ The panel's `chat()` entry point uses this adapter with `CODEX_MODEL` (default
 the CLI; Compose mounts `${KUSHEX_CODEX_HOME_HOST:-$HOME/.codex}` at `/codex` so the
 backend can use and refresh your saved login. Rebuild/recreate the backend after
 changing the Docker image or environment. The server user must be able to read
-and write the authentication directory. The default project mounts remain
-read-only; editing files requires a writable project mount.
+and write the authentication directory. Project mounts must be writable for accepted proposals to be applied. Compose provides
+a writable mount; agent file tools edit the per-run copy before publication.
 
 `createOpenAiCodingAgent({ apiKey, profile, ...settings })` remains available for
 explicit OpenAI HTTP use. For another provider or an existing gateway, construct
@@ -189,8 +191,11 @@ run requiring reconciliation, even after cancellation has been sent to the proce
   Supply a Kushibot `IAgentRunStoreFactory` through `stores` to use host storage adapters. Changes
   are retained in the working copy on failure/cancellation; no automatic rollback,
   commit, push, or publication occurs.
-- Kushex can display/edit these files. This change does not add a Run button or
-  server execution endpoint to the panel.
+- In project chat, completed coding runs with changes prepare durable proposals.
+  **Review changes** opens the recorded versions in Monaco; **Accept and apply**
+  approves the displayed proposal digest. Changed target files block application.
+  Uncertain outcomes remain pending and can be reconciled without repeating writes.
+  Reopening a saved chat restores the proposal and its publication state.
 
 ## Validation
 

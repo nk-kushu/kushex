@@ -37,6 +37,13 @@ globalThis.ResizeObserver ??= class {
 // Monaco needs real layout and web workers; render its value as plain text instead,
 // or as a textarea when the editor accepts edits.
 vi.mock("@monaco-editor/react", () => ({
+  DiffEditor: ({ original, modified }: { original: string; modified: string }) =>
+    createElement(
+      "div",
+      null,
+      createElement("pre", { "aria-label": "Original" }, original),
+      createElement("pre", { "aria-label": "Proposed" }, modified),
+    ),
   default: ({
     value,
     options,

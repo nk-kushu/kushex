@@ -28,8 +28,8 @@ docker compose -f docker/compose.standalone.yml up --build -d
 
 The default workspace mount is the empty `workspaces/` folder. To browse your
 checkouts, set `KUSHEX_WORKSPACES_HOST_ROOT=/absolute/path/to/checkouts` before
-starting Compose. It is mounted read only; the backend cannot access files outside
-that root. Create a project in the UI by choosing one of its immediate subdirectories.
+starting Compose. The checkout root is writable so explicitly accepted coding proposals
+can be applied. Coding tools edit a separate working copy until acceptance. Create a project in the UI by choosing one of its immediate subdirectories.
 To offer folders from several roots, list them in a local override such as
 `docker/compose.local.yml` (gitignored) and add `-f docker/compose.local.yml` to
 the Compose command.
@@ -48,6 +48,13 @@ a built kushibot checkout visible to the backend, for example in
 
 The chat panel runs an agent on the open project, and **Debug** runs it under a
 breakpoint debugger in the agent editor; see [running and debugging](agents/README.md#running-and-debugging-from-the-chat).
+Completed coding changes appear in the chat with **Review changes**. The Monaco diff
+shows each original and proposed file; **Accept and apply** approves that exact proposal.
+Changed originals block publication. Pending outcomes can be checked without repeating
+an uncertain write. Proposals, approvals, and publication receipts are stored in PostgreSQL;
+recorded file contents live in the `coding-artifacts` volume. `KUSHEX_ARTIFACTS_DIR` selects
+the shared artifact location for the host and the coding agent. Old threads can reopen reviews.
+
 The coding agent uses Codex CLI and its saved `auth.json`, with no API key.
 Run `codex login` on the host; Compose mounts `~/.codex` into the backend (override
 the host directory with `KUSHEX_CODEX_HOME_HOST`). Set `CODEX_MODEL` to select a

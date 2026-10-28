@@ -52,6 +52,7 @@ import { paths } from "../workbench/navigation";
 import { PaneHeader } from "../workbench/PaneHeader";
 import { selectProjectId } from "../workbench/workbenchSlice";
 import { AttachFilesDialog } from "./AttachFilesDialog";
+import { CodingChangeReview, codingResultPreview } from "./CodingChangeReview";
 
 /** The agent's task contract allows at most this many files. */
 const MAX_FILES = 16;
@@ -293,10 +294,15 @@ function ProjectChat({ projectId }: Readonly<{ projectId: string }>) {
               onChange={(name: string) =>
                 dispatch(chatAgentSelected({ projectId, agentName: name }))
               }
-              options={agents.data?.entries.map((agent) => ({
-                value: agent.name,
-                label: agent.name,
-              }))}
+              options={[
+                ...(agentName && agents.data && !known
+                  ? [{ value: agentName, label: `${agentName} (unavailable)`, disabled: true }]
+                  : []),
+                ...(agents.data?.entries.map((agent) => ({
+                  value: agent.name,
+                  label: `${agent.displayName ?? agent.name}${agent.plugin ? ` · ${agent.plugin.name}` : ""}`,
+                })) ?? []),
+              ]}
             />
             <Tooltip
               title={
@@ -504,6 +510,10 @@ function RunMessage({ runId }: Readonly<{ runId: string }>) {
   if (!run) return null;
   const active = !isFinished(run.status);
   const top = run.paused?.frames[0];
+  const coding =
+    run.status === "completed" && run.result && !run.result.truncated
+      ? codingResultPreview(run.result.value)
+      : null;
   return (
     <div aria-label={`${run.agentName} run`} className="kx:flex kx:gap-2.5 kx:pr-4">
       <div className="kx:flex kx:size-7 kx:shrink-0 kx:items-center kx:justify-center kx:rounded-full kx:bg-primary/10 kx:text-primary">
@@ -564,7 +574,16 @@ function RunMessage({ runId }: Readonly<{ runId: string }>) {
             }
           />
         )}
-        {run.result && <ResultView value={run.result.value} truncated={run.result.truncated} />}
+        {coding ? (
+          <CodingChangeReview
+            projectId={run.projectId}
+            runId={run.id}
+            summary={coding.summary}
+            count={coding.count}
+          />
+        ) : (
+          run.result && <ResultView value={run.result.value} truncated={run.result.truncated} />
+        )}
         {run.error && (
           <Alert
             className="kx:rounded-xl"

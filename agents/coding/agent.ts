@@ -75,7 +75,7 @@ export interface ChatRequest {
 export async function chat(request: ChatRequest) {
   const localArtifacts = request.artifacts
     ? null
-    : await LocalChatArtifacts.open(request.workspace);
+    : await LocalChatArtifacts.open(request.workspace, process.env.KUSHEX_ARTIFACTS_DIR);
   const artifacts = request.artifacts ?? localArtifacts!.services.store;
   try {
     const agent = createCodexCodingAgent({

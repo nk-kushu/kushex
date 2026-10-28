@@ -1,3 +1,4 @@
+import { IconPuzzle } from "@tabler/icons-react";
 import { Button, Tooltip } from "antd";
 import type { Icon } from "@tabler/icons-react";
 import { useHref, useNavigate } from "react-router";
@@ -22,9 +23,12 @@ const top: readonly { key: Activity; label: string; icon: Icon }[] = [
   { key: "tasks", label: "Tasks", icon: TasksIcon },
   { key: "notes", label: "Notes", icon: NotesIcon },
   { key: "agents", label: "Agents", icon: AgentsIcon },
+  { key: "plugins", label: "Plugins", icon: IconPuzzle },
 ];
 
-function ActivityButton({ item }: Readonly<{ item: { key: Activity; label: string; icon: Icon } }>) {
+function ActivityButton({
+  item,
+}: Readonly<{ item: { key: Activity; label: string; icon: Icon } }>) {
   const navigate = useNavigate();
   const projectId = useAppSelector(selectProjectId);
   const active = useActivity() === item.key;
@@ -38,9 +42,17 @@ function ActivityButton({ item }: Readonly<{ item: { key: Activity; label: strin
       <Button
         type={active ? "primary" : "text"}
         size="large"
-        {...(linked ? { href, "aria-current": active ? "page" : undefined } : { "aria-pressed": active })}
+        {...(linked
+          ? { href, "aria-current": active ? "page" : undefined }
+          : { "aria-pressed": active })}
         onClick={(event) => {
-          if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey)
+          if (
+            event.button !== 0 ||
+            event.metaKey ||
+            event.ctrlKey ||
+            event.shiftKey ||
+            event.altKey
+          )
             return;
           event.preventDefault();
           void navigate(path);
@@ -53,7 +65,10 @@ function ActivityButton({ item }: Readonly<{ item: { key: Activity; label: strin
 
 export function ActivityBar() {
   return (
-    <nav aria-label="Activities" className={`kx:flex kx:w-12 kx:shrink-0 kx:flex-col kx:items-center kx:gap-1 kx:bg-surface kx:py-2 ${borderR}`}>
+    <nav
+      aria-label="Activities"
+      className={`kx:flex kx:w-12 kx:shrink-0 kx:flex-col kx:items-center kx:gap-1 kx:bg-surface kx:py-2 ${borderR}`}
+    >
       {top.map((item) => (
         <ActivityButton key={item.key} item={item} />
       ))}

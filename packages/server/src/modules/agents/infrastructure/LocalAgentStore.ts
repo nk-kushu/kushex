@@ -4,6 +4,7 @@ import { lstat, mkdir, open, readdir, realpath, rename, rm, writeFile } from "no
 import path from "node:path";
 import { TextDecoder } from "node:util";
 import type { AgentDto, AgentFileDto, AgentSummaryDto } from "@kushex/contracts";
+import { ForbiddenError } from "../../../errors/ForbiddenError.js";
 import { ConflictError } from "../../../errors/ConflictError.js";
 import { NotFoundError } from "../../../errors/NotFoundError.js";
 import { PayloadTooLargeError } from "../../../errors/PayloadTooLargeError.js";
@@ -28,7 +29,7 @@ type Limits = Readonly<{
  * server is the only intended writer.
  */
 export class LocalAgentStore implements AgentStore {
-  private static readonly primaryFile = new AgentFilePath("agent.ts");
+  private readonly primaryFile: AgentFilePath;
   /** Bursts of file events, such as a tool rewriting several files, become one change. */
   private static readonly watchDelayMs = 150;
   private readonly limits: Limits;
@@ -37,7 +38,9 @@ export class LocalAgentStore implements AgentStore {
   constructor(
     private readonly directory: string,
     limits: Partial<Limits> = {},
+    private readonly source?: Readonly<{ directory: string; entry: string }>,
   ) {
+    this.primaryFile = new AgentFilePath(source?.entry ?? "agent.ts");
     this.limits = {
       maxFileBytes: MAX_AGENT_SOURCE_BYTES,
       maxTotalBytes: 4 * 1024 * 1024,
@@ -77,7 +80,7 @@ export class LocalAgentStore implements AgentStore {
     }
     return {
       name: name.value,
-      primaryFile: LocalAgentStore.primaryFile.value,
+      primaryFile: this.primaryFile.value,
       updatedAt: primary.mtime.toISOString(),
       files: files.sort((a, b) => a.path.localeCompare(b.path)),
     };
@@ -89,7 +92,7 @@ export class LocalAgentStore implements AgentStore {
     const directory = await realpath(this.folderPath(name));
     return {
       directory,
-      primaryFile: path.join(directory, ...LocalAgentStore.primaryFile.segments),
+      primaryFile: path.join(directory, ...this.primaryFile.segments),
     };
   }
 
@@ -99,7 +102,7 @@ export class LocalAgentStore implements AgentStore {
         throw new ConflictError(`An agent named "${name}" already exists.`);
       await mkdir(this.directory, { recursive: true });
       await this.ensureFolder(this.folderPath(name), `agents/${name}`);
-      await this.write(name, LocalAgentStore.primaryFile, primarySource);
+      await this.write(name, this.primaryFile, primarySource);
       return this.find(name);
     });
   }
@@ -238,7 +241,7 @@ export class LocalAgentStore implements AgentStore {
   /** The primary file's stats when the agent exists as a real folder with a regular primary file. */
   private async primaryInfo(name: AgentName) {
     if (!(await this.isRealFolder(this.folderPath(name)))) return null;
-    const info = await lstat(this.filePath(name, LocalAgentStore.primaryFile)).catch(() => null);
+    const info = await lstat(this.filePath(name, this.primaryFile)).catch(() => null);
     return info?.isFile() ? info : null;
   }
 
@@ -277,6 +280,10 @@ export class LocalAgentStore implements AgentStore {
       await rename(temporary, target);
     } catch (error) {
       await rm(temporary, { force: true });
+      if (["EACCES", "EPERM", "EROFS"].includes(String(this.code(error))))
+        throw new ForbiddenError(
+          "Agent source is not writable. Grant write access to its plugin folder to save changes.",
+        );
       throw error;
     }
   }
@@ -287,7 +294,7 @@ export class LocalAgentStore implements AgentStore {
   }
 
   private folderPath(name: AgentName): string {
-    return path.join(this.directory, name.value);
+    return this.source?.directory ?? path.join(this.directory, name.value);
   }
 
   private filePath(name: AgentName, file: AgentFilePath): string {

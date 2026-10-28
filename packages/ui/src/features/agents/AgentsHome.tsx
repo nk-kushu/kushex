@@ -42,7 +42,11 @@ export function AgentsHome({ onOpen }: Readonly<{ onOpen: (name: string) => void
   const [creating, setCreating] = useState(false);
   const [query, setQuery] = useState("");
   const entries = agents.data?.entries ?? [];
-  const shown = entries.filter((agent) => agent.name.includes(query.trim().toLowerCase()));
+  const shown = entries.filter((agent) =>
+    `${agent.name} ${agent.displayName ?? ""} ${agent.plugin?.name ?? ""}`
+      .toLowerCase()
+      .includes(query.trim().toLowerCase()),
+  );
 
   return (
     <div className="kx:h-full kx:overflow-auto kx:bg-surface-muted">
@@ -111,9 +115,12 @@ export function AgentsHome({ onOpen }: Readonly<{ onOpen: (name: string) => void
                   >
                     <AgentBadge />
                     <span className="kx:flex kx:min-w-0 kx:flex-1 kx:flex-col">
-                      <span className="kx:truncate kx:font-medium kx:text-text">{agent.name}</span>
+                      <span className="kx:truncate kx:font-medium kx:text-text">
+                        {agent.displayName ?? agent.name}
+                      </span>
                       <span className="kx:truncate kx:text-xs kx:text-text-muted">
-                        Updated {timeAgo(agent.updatedAt)}
+                        {agent.plugin ? `${agent.plugin.name} · ` : ""}Updated{" "}
+                        {timeAgo(agent.updatedAt)}
                       </span>
                     </span>
                     <span className="kx:inline-flex kx:text-text-muted kx:transition-transform kx:group-hover:translate-x-0.5 kx:group-hover:text-primary">

@@ -30,7 +30,7 @@ export function AgentSwitcher({ name }: Readonly<{ name: string }>) {
               label: "Switch agent",
               children: (agents.data?.entries ?? []).map((agent) => ({
                 key: `agent:${agent.name}`,
-                label: agent.name,
+                label: `${agent.displayName ?? agent.name}${agent.plugin ? ` · ${agent.plugin.name}` : ""}`,
                 extra: agent.name === name ? <IconCheck size={14} /> : undefined,
               })),
             },
@@ -54,7 +54,8 @@ export function AgentSwitcher({ name }: Readonly<{ name: string }>) {
               type="secondary"
               className="kx:truncate kx:text-[11px] kx:leading-tight"
             >
-              agents/{name}
+              {agents.data?.entries.find((agent) => agent.name === name)?.plugin?.name ??
+                `agents/${name}`}
             </Typography.Text>
           </span>
           <span aria-hidden className="kx:inline-flex kx:text-text-muted">

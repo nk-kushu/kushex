@@ -10,6 +10,7 @@ import type { HttpController } from "../../../transport/http/HttpController.js";
 import type { RequestContextFactory } from "../../../transport/http/RequestContextFactory.js";
 import { AgentFilePath, AgentName } from "../../agents/public.js";
 import type { AgentRunDebugEvents } from "../application/AgentRunDebugEvents.js";
+import type { CodingProposals } from "../application/CodingProposals.js";
 import type { AgentRunService } from "../application/AgentRunService.js";
 
 /** Comments keep idle proxies (Nginx closes after 60 s) from dropping the event stream. */
@@ -20,6 +21,7 @@ export class AgentRunsController implements HttpController {
     private readonly runs: AgentRunService,
     private readonly contexts: RequestContextFactory,
     private readonly debugEvents: AgentRunDebugEvents | null = null,
+    private readonly proposals: CodingProposals | null = null,
   ) {}
 
   register(routes: FastifyInstance): void {
@@ -57,6 +59,70 @@ export class AgentRunsController implements HttpController {
       async (request, reply) => {
         reply.code(201).header("Cache-Control", "no-store");
         return this.runs.launch(this.contexts.create(request), request.params.id, request.body);
+      },
+    );
+    routes.get<{ Params: { projectId: string; id: string } }>(
+      "/projects/:projectId/agent-runs/:id/proposal",
+      { schema: { params: z.object({ projectId: z.uuid(), id: z.uuid() }) } },
+      async (request, reply) => {
+        if (!this.proposals) throw new Error("Coding proposals are unavailable.");
+        reply.header("Cache-Control", "no-store");
+        return this.proposals.review(
+          this.contexts.create(request),
+          request.params.projectId,
+          request.params.id,
+        );
+      },
+    );
+    routes.post<{ Params: { projectId: string; id: string } }>(
+      "/projects/:projectId/agent-runs/:id/proposal",
+      { schema: { params: z.object({ projectId: z.uuid(), id: z.uuid() }) } },
+      async (request, reply) => {
+        if (!this.proposals) throw new Error("Coding proposals are unavailable.");
+        reply.header("Cache-Control", "no-store");
+        return this.proposals.create(
+          this.contexts.create(request),
+          request.params.projectId,
+          request.params.id,
+        );
+      },
+    );
+    routes.post<{ Params: { projectId: string; id: string }; Body: { digest: string } }>(
+      "/projects/:projectId/agent-runs/:id/proposal/apply",
+      {
+        schema: {
+          params: z.object({ projectId: z.uuid(), id: z.uuid() }),
+          body: z.object({ digest: z.string().regex(/^[a-f0-9]{64}$/) }).strict(),
+        },
+      },
+      async (request, reply) => {
+        if (!this.proposals) throw new Error("Coding proposals are unavailable.");
+        reply.header("Cache-Control", "no-store");
+        return this.proposals.apply(
+          this.contexts.create(request),
+          request.params.projectId,
+          request.params.id,
+          request.body.digest,
+        );
+      },
+    );
+    routes.post<{ Params: { projectId: string; id: string }; Body: { digest: string } }>(
+      "/projects/:projectId/agent-runs/:id/proposal/reconcile",
+      {
+        schema: {
+          params: z.object({ projectId: z.uuid(), id: z.uuid() }),
+          body: z.object({ digest: z.string().regex(/^[a-f0-9]{64}$/) }).strict(),
+        },
+      },
+      async (request, reply) => {
+        if (!this.proposals) throw new Error("Coding proposals are unavailable.");
+        reply.header("Cache-Control", "no-store");
+        return this.proposals.reconcile(
+          this.contexts.create(request),
+          request.params.projectId,
+          request.params.id,
+          request.body.digest,
+        );
       },
     );
     routes.get<{ Params: { id: string } }>(

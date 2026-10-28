@@ -1,3 +1,5 @@
+import { PluginCatalog } from "../modules/plugins/PluginCatalog.js";
+import { PluginsController } from "../modules/plugins/PluginsController.js";
 import {
   SettingsService,
   PrismaSettingsRepository,
@@ -23,11 +25,11 @@ import {
   CodeNotesController,
   CodeNotesService,
   KushibotTypesReader,
-  LocalAgentStore,
   PrismaCodeNotesRepository,
 } from "../modules/agents/public.js";
 import {
   AgentRunDebugEvents,
+  CodingProposals,
   AgentRunService,
   AgentRunsController,
   ChildProcessAgentLauncher,
@@ -89,8 +91,9 @@ export class ApplicationFactory {
     const projects = new ProjectService(new PrismaProjectRepository(database.client), workspaces);
     const threads = new ChatThreads(database.client, projects, this.logger);
     const files = new FileService(workspaces, filesystem);
+    const catalog = new PluginCatalog(this.config.agentsDirectory, this.config.pluginsDirectory);
     const agents = new AgentService(
-      new LocalAgentStore(this.config.agentsDirectory),
+      catalog,
       new AgentTemplate(),
       new KushibotTypesReader(this.config.kushibotDirectory),
     );
@@ -106,6 +109,14 @@ export class ApplicationFactory {
       new PrismaDebugStreamRepository(database.client),
       this.logger,
     );
+    const codingProposals = new CodingProposals(
+      threads,
+      workspaces,
+      workspacePaths,
+      kushibotDatabase,
+      this.config.kushibotDirectory,
+      this.config.artifactsDirectory,
+    );
     const runs = new AgentRunService(
       workspaces,
       workspacePaths,
@@ -114,6 +125,7 @@ export class ApplicationFactory {
       debugEvents,
       {},
       threads,
+      codingProposals,
     );
     const http = new HttpServer(
       this.config.http,
@@ -130,16 +142,17 @@ export class ApplicationFactory {
         new ChatThreadsController(threads, contexts),
         new FilesController(files, contexts),
         new AgentsController(agents),
+        new PluginsController(catalog),
         new CodeNotesController(
           new CodeNotesService(new PrismaCodeNotesRepository(database.client), agents),
         ),
-        new AgentRunsController(runs, contexts, debugEvents),
+        new AgentRunsController(runs, contexts, debugEvents, codingProposals),
       ],
       new LocalRequestGuard(this.config.allowedOrigins),
     );
     // Stopped in reverse: agent processes end first, which also closes their event streams.
     return new Application(
-      [database, kushibotDatabase, http, threads, runs],
+      [database, kushibotDatabase, catalog, http, threads, runs],
       this.config.shutdownTimeoutMs,
       this.logger,
     );

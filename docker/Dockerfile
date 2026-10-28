@@ -37,6 +37,7 @@ ENV NODE_ENV=production HOST=0.0.0.0 PORT=3000
 WORKDIR /app
 COPY --from=backend-build --chown=node:node /opt/server ./
 RUN ln -s /app/node_modules /node_modules
+RUN mkdir -p /var/lib/kushex/artifacts && chown -R node:node /var/lib/kushex
 USER node
 EXPOSE 3000
 CMD ["node", "dist/index.js"]

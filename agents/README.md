@@ -86,3 +86,63 @@ as ES modules; without it they run as CommonJS and step badly through generated 
 `import ... from "kushibot"` resolves to `KUSHEX_KUSHIBOT_DIR`. Runs live in server
 memory only, and the project workspace is mounted read-only in Docker, so agents that
 write files (such as coding) fail at their first write there.
+
+## Local plugins
+
+Kushex discovers `kushex-plugin.json` packages at startup. The existing `agents/`
+folder is the **Local Agents** plugin; older panel-created folders are added to
+its manifest automatically. Creating an agent in the panel writes its folder and
+manifest together, rolling back the folder on failure.
+
+Set `KUSHEX_PLUGINS_DIR` to an absolute directory (default: `kushex/plugins`).
+Install a package by copying its complete folder into that directory, then restart
+the server. Remove its folder and restart to uninstall. IDs must be unique across
+all plugins. History, saved selections, notes and breakpoints remain associated
+with the agent ID and resolve again when that ID is reinstalled.
+
+```text
+plugins/example/kushex-plugin.json
+plugins/example/agents/echo/main.ts
+```
+
+```json
+{
+  "id": "example",
+  "name": "Example Agents",
+  "version": "1.0.0",
+  "apiVersion": 1,
+  "agents": [
+    {
+      "id": "echo",
+      "name": "Echo",
+      "description": "Repeat a message.",
+      "directory": "agents/echo",
+      "entry": "main.ts"
+    }
+  ]
+}
+```
+
+```ts
+export async function chat({ message }: { message: string }) {
+  return message;
+}
+```
+
+Open **Plugins** to inspect packages and errors or open an agent in the existing
+editor. Agent files are edited in place, including external plugin files. New runs
+load the saved entry. Read-only packages remain viewable; saves require write
+access. Entries and imports should be regular files inside the agent directory;
+the editor does not follow symbolic links. Use a `package.json` with `"type":
+"module"` in the plugin folder for ES module sources.
+
+Agents run as local trusted code with the existing Node/tsx runner, project working
+directory, cancellation and debugger. TypeScript and Node built-ins are supported.
+The configured `KUSHEX_KUSHIBOT_DIR` provides the `kushibot` runtime import and
+editor types even outside the repository. Install any other dependencies manually
+in the plugin package (`node_modules`), using normal Node resolution; Kushex does
+not install dependencies or expose their types in the editor. Plugins contribute
+agents only; there are no plugin pages, services, tools or lifecycle hooks.
+
+For Docker, bind-mount the plugins directory into the backend and set
+`KUSHEX_PLUGINS_DIR` to that container path. Mount it writable to use the editor.

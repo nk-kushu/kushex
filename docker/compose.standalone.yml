@@ -41,6 +41,8 @@ services:
       DATABASE_URL: *database-url
       KUSHEX_WORKSPACES_ROOT: /workspaces
       KUSHEX_AGENTS_DIR: /agents
+      KUSHEX_PLUGINS_DIR: /plugins
+      KUSHEX_ARTIFACTS_DIR: /var/lib/kushex/artifacts
       KUSHEX_ALLOWED_ORIGINS: http://localhost:3050,http://127.0.0.1:3050
       # Agents run from the chat read model credentials from the backend's environment.
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
@@ -58,13 +60,20 @@ services:
       - type: bind
         source: ${KUSHEX_WORKSPACES_HOST_ROOT:-../workspaces}
         target: /workspaces
-        read_only: true
+        read_only: false
         bind:
           create_host_path: false
+      # Retain recorded changes across backend rebuilds and restarts.
+      - coding-artifacts:/var/lib/kushex
       # Agent source files created in the panel; writable so the editor can save.
       - type: bind
         source: ../agents
         target: /agents
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ../plugins
+        target: /plugins
         bind:
           create_host_path: false
     depends_on:
@@ -104,3 +113,4 @@ services:
 
 volumes:
   postgres-data:
+  coding-artifacts:

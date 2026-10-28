@@ -1,7 +1,10 @@
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 import type {
+  PluginDto,
   AgentCodeNotesDto,
   ChatThreadDto,
+  CodingProposalReviewDto,
+  CodingPublicationResultDto,
   ChatThreadDetailDto,
   AgentDto,
   AgentRunDebugEventsDto,
@@ -44,7 +47,15 @@ export const kushexApi = createApi({
       cache: "no-store",
     })(args, api, extraOptions);
   },
-  tagTypes: ["Projects", "Agents", "AgentFiles", "AgentNotes", "ChatThreads"],
+  tagTypes: [
+    "Projects",
+    "Agents",
+    "AgentFiles",
+    "AgentNotes",
+    "ChatThreads",
+    "WorkspaceFiles",
+    "CodingProposal",
+  ],
   keepUnusedDataFor: 0,
   endpoints: (build) => ({
     chatThreads: build.query<readonly ChatThreadDto[], string>({
@@ -97,12 +108,18 @@ export const kushexApi = createApi({
         url: `/projects/${encodeURIComponent(projectId)}/tree`,
         params,
       }),
+      providesTags: (_result, _error, { projectId }) => [{ type: "WorkspaceFiles", id: projectId }],
     }),
     file: build.query<FileContentDto, { projectId: string; path: string }>({
       query: ({ projectId, path }) => ({
         url: `/projects/${encodeURIComponent(projectId)}/file`,
         params: { path },
       }),
+      providesTags: (_result, _error, { projectId }) => [{ type: "WorkspaceFiles", id: projectId }],
+    }),
+    plugins: build.query<Page<PluginDto>, void>({
+      query: () => "/plugins",
+      providesTags: ["Agents"],
     }),
     agents: build.query<Page<AgentSummaryDto>, void>({
       query: () => "/agents",
@@ -197,6 +214,61 @@ export const kushexApi = createApi({
         body,
       }),
     }),
+    codingProposalReview: build.query<
+      CodingProposalReviewDto,
+      { projectId: string; runId: string }
+    >({
+      async queryFn({ projectId, runId }, _api, _extra, baseQuery) {
+        const url = `/projects/${encodeURIComponent(projectId)}/agent-runs/${encodeURIComponent(runId)}/proposal`;
+        let result = await baseQuery(url);
+        if (result.error?.status === 404) {
+          const created = await baseQuery({ url, method: "POST", body: {} });
+          if (created.error) return { error: created.error };
+          result = await baseQuery(url);
+        }
+        return result.error
+          ? { error: result.error }
+          : { data: result.data as CodingProposalReviewDto };
+      },
+      providesTags: (_result, _error, { runId }) => [{ type: "CodingProposal", id: runId }],
+    }),
+    createCodingProposal: build.mutation<unknown, { projectId: string; runId: string }>({
+      query: ({ projectId, runId }) => ({
+        url: `/projects/${encodeURIComponent(projectId)}/agent-runs/${encodeURIComponent(runId)}/proposal`,
+        method: "POST",
+        body: {},
+      }),
+    }),
+    applyCodingProposal: build.mutation<
+      CodingPublicationResultDto,
+      { projectId: string; runId: string; digest: string }
+    >({
+      query: ({ projectId, runId, digest }) => ({
+        url: `/projects/${encodeURIComponent(projectId)}/agent-runs/${encodeURIComponent(runId)}/proposal/apply`,
+        method: "POST",
+        body: { digest },
+      }),
+      // Even a pending operation may have changed some files.
+      invalidatesTags: (_result, _error, { projectId, runId }) => [
+        { type: "WorkspaceFiles", id: projectId },
+        { type: "CodingProposal", id: runId },
+      ],
+    }),
+    reconcileCodingProposal: build.mutation<
+      CodingPublicationResultDto,
+      { projectId: string; runId: string; digest: string }
+    >({
+      query: ({ projectId, runId, digest }) => ({
+        url: `/projects/${encodeURIComponent(projectId)}/agent-runs/${encodeURIComponent(runId)}/proposal/reconcile`,
+        method: "POST",
+        body: { digest },
+      }),
+      // Even a pending operation may have changed some files.
+      invalidatesTags: (_result, _error, { projectId, runId }) => [
+        { type: "WorkspaceFiles", id: projectId },
+        { type: "CodingProposal", id: runId },
+      ],
+    }),
     cancelAgentRun: build.mutation<void, string>({
       query: (runId) => ({
         url: `/agent-runs/${encodeURIComponent(runId)}/cancel`,
@@ -263,6 +335,7 @@ export const {
   useTreeQuery,
   useLazyTreeQuery,
   useFileQuery,
+  usePluginsQuery,
   useAgentsQuery,
   useAgentQuery,
   useAgentFilesQuery,
@@ -273,6 +346,11 @@ export const {
   useUpdateAgentNotesMutation,
   useKushibotTypesQuery,
   useStartAgentRunMutation,
+  useCodingProposalReviewQuery,
+  useLazyCodingProposalReviewQuery,
+  useCreateCodingProposalMutation,
+  useApplyCodingProposalMutation,
+  useReconcileCodingProposalMutation,
   useCancelAgentRunMutation,
   useDebugCommandMutation,
   useEvaluateMutation,

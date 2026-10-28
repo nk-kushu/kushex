@@ -24,6 +24,7 @@ describe("ServerConfigLoader", () => {
       database: { url: databaseUrl, maxConnections: 10, connectionTimeoutMs: 5000 },
       workspacesRoots: [path.resolve("workspaces")],
       agentsDirectory: fileURLToPath(new URL("../../../../agents", import.meta.url)),
+      pluginsDirectory: fileURLToPath(new URL("../../../../plugins", import.meta.url)),
       kushibotDirectory: null,
       allowedOrigins: [
         "http://localhost:5173",

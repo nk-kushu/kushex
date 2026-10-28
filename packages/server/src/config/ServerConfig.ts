@@ -7,8 +7,11 @@ export type ServerConfig = Readonly<{
   workspacesRoots: readonly string[];
   /** Absolute directory holding one folder per agent (`<name>/agent.ts`). */
   agentsDirectory: string;
+  pluginsDirectory?: string;
   /** Absolute kushibot package directory whose declarations type-check agents, if any. */
   kushibotDirectory: string | null;
+  /** Shared local coding/publication artifact directory, outside editable workspaces. */
+  artifactsDirectory?: string;
   allowedOrigins: readonly string[];
   shutdownTimeoutMs: number;
   logLevel: LogLevel;

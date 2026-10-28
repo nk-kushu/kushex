@@ -5,3 +5,5 @@ export { AgentRunsController } from "./transport/AgentRunsController.js";
 export { AgentRunDebugEvents } from "./application/AgentRunDebugEvents.js";
 export { KushibotDebugEventLog } from "./infrastructure/KushibotDebugEventLog.js";
 export { PrismaDebugStreamRepository } from "./infrastructure/PrismaDebugStreamRepository.js";
+
+export { CodingProposals } from "./application/CodingProposals.js";

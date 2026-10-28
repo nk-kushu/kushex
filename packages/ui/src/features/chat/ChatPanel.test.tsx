@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, expect, it, vi } from "vitest";
 import { KushexPanel } from "../../KushexPanel";
@@ -363,4 +363,154 @@ it("loads a saved thread and restores its messages and reply", async () => {
   await user.click(await screen.findByTitle("Saved question"));
   expect(await screen.findByText("Saved answer")).toBeInTheDocument();
   expect(screen.getByText("What did you find?")).toBeInTheDocument();
+});
+
+const codingResult = {
+  outcome: { status: "finished", outcome: { status: "completed" } },
+  result: {
+    summary: "Updated the answer",
+    changedPaths: ["src/index.ts", "new.ts"],
+    unresolved: [],
+  },
+};
+
+it("reviews a completed coding run, selects files, applies the reviewed digest and refreshes an open file", async () => {
+  const api = mockKushexApi([exampleProject], [exampleAgent]);
+  api.proposals["run-1"] = {
+    id: "run-1",
+    digest: "a".repeat(64),
+    summary: "Updated the answer",
+    status: "ready",
+    changes: [
+      {
+        path: "src/index.ts",
+        before: "export const answer = 42;",
+        after: "export const answer = 43;",
+      },
+      { path: "new.ts", before: null, after: "export const added = true;" },
+    ],
+  };
+  const user = userEvent.setup();
+  render(<KushexPanel />);
+  await user.click(await screen.findByRole("button", { name: "Open Project one" }));
+  // Keep a file open to verify publication invalidates its query.
+  await user.dblClick(await screen.findByText("src"));
+  await user.click(await screen.findByText("index.ts"));
+  expect(await screen.findByText("export const answer = 42;")).toBeInTheDocument();
+  await chooseAgent(user, "reviewer");
+  await user.type(screen.getByLabelText("Message"), "Update the answer");
+  await user.click(screen.getByRole("button", { name: "Send" }));
+  await waitFor(() => expect(api.runs).toHaveLength(1));
+  const stream = FakeEventSource.of("run-1");
+  act(() => {
+    stream.emit({ type: "result", value: codingResult, truncated: false });
+    stream.emit({ type: "status", status: "completed" });
+  });
+  const button = await screen.findByRole("button", { name: "Review changes" });
+  await waitFor(() => expect(button).toBeEnabled());
+  await user.click(button);
+  const dialog = await screen.findByRole("dialog");
+  expect(await within(dialog).findByLabelText("Original")).toHaveTextContent(
+    "export const answer = 42;",
+  );
+  expect(within(dialog).getByLabelText("Proposed")).toHaveTextContent("export const answer = 43;");
+  expect(api.proposalApplies).toEqual([]);
+  await user.click(within(dialog).getByLabelText("Changed file"));
+  await user.click(await screen.findByTitle("new.ts (new file)"));
+  expect(within(dialog).getByLabelText("Proposed")).toHaveTextContent("export const added = true;");
+  await user.click(within(dialog).getByRole("button", { name: "Accept and apply" }));
+  expect(await within(dialog).findByText("Changes applied to the project.")).toBeInTheDocument();
+  expect(api.proposalApplies).toEqual([{ runId: "run-1", digest: "a".repeat(64) }]);
+  await user.click(within(dialog).getAllByRole("button", { name: "Close" }).at(-1)!);
+  await waitFor(() => expect(screen.getByText("export const answer = 43;")).toBeInTheDocument());
+});
+
+it("reopens persisted coding reviews and disables apply for conflicts", async () => {
+  const api = mockKushexApi([exampleProject], [exampleAgent]);
+  api.proposals["old-run"] = {
+    id: "old-run",
+    digest: "b".repeat(64),
+    summary: "Updated the answer",
+    status: "not-applied",
+    code: "TARGET_CHANGED",
+    changes: [{ path: "a.ts", before: "old", after: "new" }],
+  };
+  api.threads.push({
+    id: "saved-thread",
+    projectId: exampleProject.id,
+    title: "Saved changes",
+    createdAt: "2026-10-28",
+    updatedAt: "2026-10-28",
+    turns: [
+      {
+        id: "old-run",
+        agentName: "reviewer",
+        message: "Update the answer",
+        files: [],
+        debug: false,
+        createdAt: "2026-10-28",
+        events: [
+          { type: "result", value: codingResult, truncated: false },
+          { type: "status", status: "completed" },
+        ],
+      },
+    ],
+  });
+  const user = userEvent.setup();
+  render(<KushexPanel />);
+  await user.click(await screen.findByRole("button", { name: "Open Project one" }));
+  await user.click(screen.getByLabelText("Chat thread"));
+  await user.click(await screen.findByTitle("Saved changes"));
+  const review = await screen.findByRole("button", { name: "Review changes" });
+  await waitFor(() => expect(review).toBeEnabled());
+  await user.click(review);
+  const dialog = await screen.findByRole("dialog");
+  expect(
+    await within(dialog).findByText("Project files changed since this proposal was prepared."),
+  ).toBeInTheDocument();
+  expect(within(dialog).getByRole("button", { name: "Accept and apply" })).toBeDisabled();
+  expect(api.proposalApplies).toEqual([]);
+});
+
+it("checks a lost apply response without sending a second approval", async () => {
+  const api = mockKushexApi([exampleProject], [exampleAgent]);
+  api.proposals["run-1"] = {
+    id: "run-1",
+    digest: "c".repeat(64),
+    summary: "Updated the answer",
+    status: "ready",
+    changes: [{ path: "src/index.ts", before: "old", after: "new" }],
+  };
+  const served = api.fetch.getMockImplementation()!;
+  api.fetch.mockImplementation(async (input) => {
+    const request = input instanceof Request ? input : new Request(input);
+    const response = await served(input);
+    if (new URL(request.url).pathname.endsWith("/proposal/apply"))
+      throw new TypeError("Lost response");
+    return response;
+  });
+  const user = userEvent.setup();
+  render(<KushexPanel />);
+  await user.click(await screen.findByRole("button", { name: "Open Project one" }));
+  await chooseAgent(user, "reviewer");
+  await user.type(screen.getByLabelText("Message"), "Update{Enter}");
+  act(() => {
+    FakeEventSource.of("run-1").emit({ type: "result", value: codingResult, truncated: false });
+    FakeEventSource.of("run-1").emit({ type: "status", status: "completed" });
+  });
+  const review = await screen.findByRole("button", { name: "Review changes" });
+  await waitFor(() => expect(review).toBeEnabled());
+  await user.click(review);
+  const dialog = await screen.findByRole("dialog");
+  const accept = within(dialog).getByRole("button", { name: "Accept and apply" });
+  await waitFor(() => expect(accept).toBeEnabled());
+  await user.click(accept);
+  expect(await within(dialog).findByText("Application outcome is pending")).toBeInTheDocument();
+  expect(accept).toBeDisabled();
+  const check = within(dialog).getByRole("button", { name: "Check application status" });
+  await waitFor(() => expect(check).toBeEnabled());
+  await user.click(check);
+  expect(await within(dialog).findByText("Changes applied to the project.")).toBeInTheDocument();
+  expect(api.proposalApplies).toHaveLength(1);
+  expect(api.proposalChecks).toHaveLength(1);
 });
