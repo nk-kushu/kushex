@@ -5,6 +5,7 @@ import { useEffect, useImperativeHandle, useRef, useState, type ReactNode, type 
 import { Provider } from "react-redux";
 import { useAppSelector } from "./app/hooks";
 import { makeStore } from "./app/store";
+import { RunTabSync } from "./features/runs/RunTabSync";
 import { getAntdTheme } from "./app/theme";
 import { NavigationBridge, PanelRouter, type NavigateTo } from "./app/PanelRouter";
 import { ThemeBridge } from "./app/ThemeBridge";
@@ -45,6 +46,11 @@ export function KushexPanel({
   useEffect(() => {
     store.dispatch(settingsRequested());
   }, [store]);
+
+  useEffect(
+    () => new RunTabSync(store, { instanceId, apiBaseUrl }).connect(),
+    [store, instanceId, apiBaseUrl],
+  );
 
   const navigateRef = useRef<NavigateTo>(null);
   useImperativeHandle(

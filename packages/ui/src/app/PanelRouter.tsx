@@ -1,4 +1,6 @@
 import {
+  createContext,
+  useContext,
   useEffect,
   useEffectEvent,
   useLayoutEffect,
@@ -11,6 +13,10 @@ import type { RouterMode } from "../types";
 
 export type NavigateTo = (path: string) => void;
 
+/** Whether pages have URLs of their own (browser and hash routers), so links can open new tabs. */
+const PageUrlsContext = createContext(false);
+export const usePageUrls = () => useContext(PageUrlsContext);
+
 type PanelRouterProps = Readonly<{
   mode?: RouterMode;
   basename?: string;
@@ -21,17 +27,23 @@ type PanelRouterProps = Readonly<{
 /** The router is fixed at mount; changing its options later would drop the panel's history. */
 export function PanelRouter({ mode = "memory", basename, initialPath, children }: PanelRouterProps) {
   const [initial] = useState({ mode, basename, initialPath });
-  switch (initial.mode) {
+  return (
+    <PageUrlsContext value={initial.mode !== "memory"}>
+      <ModeRouter {...initial}>{children}</ModeRouter>
+    </PageUrlsContext>
+  );
+}
+
+/** The router for one mode; its options are the ones frozen at mount. */
+function ModeRouter({ mode, basename, initialPath, children }: PanelRouterProps) {
+  switch (mode) {
     case "browser":
-      return <BrowserRouter basename={initial.basename}>{children}</BrowserRouter>;
+      return <BrowserRouter basename={basename}>{children}</BrowserRouter>;
     case "hash":
-      return <HashRouter basename={initial.basename}>{children}</HashRouter>;
-    case "memory":
+      return <HashRouter basename={basename}>{children}</HashRouter>;
+    default:
       return (
-        <MemoryRouter
-          basename={initial.basename}
-          initialEntries={[withBase(initial.basename, initial.initialPath)]}
-        >
+        <MemoryRouter basename={basename} initialEntries={[withBase(basename, initialPath)]}>
           {children}
         </MemoryRouter>
       );

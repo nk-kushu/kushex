@@ -45,6 +45,9 @@ export function configureAgentLanguage(monaco: Monaco, types: LibraryTypesDto | 
     noEmit: true,
     allowNonTsExtensions: true,
   });
+  // Without it the worker only sees the file being checked, so relative imports between
+  // the agent's files fail with "Cannot find module" until something else syncs them.
+  typescript.typescriptDefaults.setEagerModelSync(true);
   typescript.typescriptDefaults.setExtraLibs(
     (types?.files ?? []).map((file) => ({
       content: file.content,
@@ -52,3 +55,12 @@ export function configureAgentLanguage(monaco: Monaco, types: LibraryTypesDto | 
     })),
   );
 }
+
+/** The agent-relative path of a model URI, or undefined when it is outside the agent folder. */
+export function agentPathOf(name: string, uri: { path: string }): string | undefined {
+  const prefix = `/agents/${name}/`;
+  return uri.path.startsWith(prefix) ? uri.path.slice(prefix.length) : undefined;
+}
+
+/** Whether a model URI is one of the library declarations registered above. */
+export const isLibraryUri = (uri: { path: string }) => uri.path.startsWith("/node_modules/");

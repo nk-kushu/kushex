@@ -34,3 +34,219 @@
 
 /* Dark mode follows the antd algorithm, toggled by a class on the panel root */
 @custom-variant dark (&:where(.kx-dark, .kx-dark *));
+
+/* Debugger decorations in the agent editor (Monaco class names, VS Code colors). */
+.kx-breakpoint-glyph,
+.kx-breakpoint-hint-glyph {
+  cursor: pointer;
+}
+.kx-breakpoint-glyph::before,
+.kx-breakpoint-hint-glyph::before {
+  content: "";
+  display: block;
+  width: 10px;
+  height: 10px;
+  margin: 4px auto 0;
+  border-radius: 50%;
+  background: #e51400;
+}
+.kx-breakpoint-glyph.kx-unverified::before {
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px #848484;
+}
+.kx-breakpoint-hint-glyph::before {
+  opacity: 0.4;
+}
+.kx-debug-current-glyph::after,
+.kx-debug-frame-glyph::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  border-style: solid;
+  border-width: 6px 0 6px 10px;
+  border-color: transparent transparent transparent #ffcc00;
+}
+.kx-debug-frame-glyph::after {
+  border-left-color: #4fbf6f;
+}
+.kx-debug-current-line {
+  background: rgba(255, 238, 0, 0.25);
+}
+.kx-debug-frame-line {
+  background: rgba(79, 191, 111, 0.2);
+}
+
+/* Chat: "agent is thinking" dots. */
+@keyframes kx-typing {
+  0%,
+  60%,
+  100% {
+    opacity: 0.3;
+    transform: translateY(0);
+  }
+  30% {
+    opacity: 1;
+    transform: translateY(-3px);
+  }
+}
+.kx-typing-dot {
+  animation: kx-typing 1.2s ease-in-out infinite;
+}
+.kx-typing-dot:nth-child(2) {
+  animation-delay: 0.15s;
+}
+.kx-typing-dot:nth-child(3) {
+  animation-delay: 0.3s;
+}
+/* Chat composer: the textarea blends into the card that frames it. */
+.kx-composer textarea,
+.kx-composer textarea:focus,
+.kx-composer textarea:focus-visible {
+  resize: none;
+  outline: none;
+  box-shadow: none;
+  padding: 10px 12px 4px;
+}
+
+/* Code notes in the agent editor: noted lines, their gutter bar and the inline title. */
+.kx-code-note-line {
+  background: color-mix(in srgb, var(--kx-ant-color-primary) 6%, transparent);
+}
+.kx-code-note-line.kx-selected {
+  background: color-mix(in srgb, var(--kx-ant-color-primary) 14%, transparent);
+}
+.kx-code-note-bar {
+  cursor: pointer;
+  margin-left: 3px;
+  width: 3px !important;
+  background: var(--kx-ant-color-primary);
+}
+.kx-code-note-bar.kx-outdated {
+  background: repeating-linear-gradient(
+    180deg,
+    var(--kx-ant-color-warning) 0 3px,
+    transparent 3px 6px
+  );
+}
+.kx-code-note-inline {
+  cursor: pointer;
+  font-style: italic;
+  font-size: 0.9em;
+  color: var(--kx-ant-color-primary);
+  opacity: 0.75;
+}
+.kx-code-note-inline:hover {
+  opacity: 1;
+  text-decoration: underline;
+}
+.kx-code-note-inline.kx-outdated {
+  color: var(--kx-ant-color-warning);
+}
+.kx-note-add-widget {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  cursor: pointer;
+  white-space: nowrap;
+  font: 500 12px/18px var(--kx-ant-font-family);
+  color: #fff;
+  background: var(--kx-ant-color-primary);
+  border: 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+.kx-note-add-widget:hover {
+  filter: brightness(1.08);
+}
+.kx-note-add-widget kbd {
+  margin-left: 2px;
+  padding-left: 6px;
+  font: inherit;
+  opacity: 0.85;
+  border-left: 1px solid rgba(255, 255, 255, 0.4);
+}
+
+/* Rendered markdown (code notes). Preflight may be missing, so spacing is explicit. */
+.kx-markdown {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--kx-ant-color-text);
+  overflow-wrap: anywhere;
+}
+.kx-markdown > :first-child {
+  margin-top: 0;
+}
+.kx-markdown > :last-child {
+  margin-bottom: 0;
+}
+.kx-markdown :where(p, ul, ol, pre, blockquote, table) {
+  margin: 0 0 0.75em;
+}
+.kx-markdown :where(h1, h2, h3, h4, h5, h6) {
+  margin: 1em 0 0.5em;
+  line-height: 1.3;
+  font-weight: 600;
+}
+.kx-markdown h1 {
+  font-size: 1.35em;
+}
+.kx-markdown h2 {
+  font-size: 1.2em;
+}
+.kx-markdown :where(h3, h4, h5, h6) {
+  font-size: 1.05em;
+}
+.kx-markdown :where(ul, ol) {
+  padding-left: 1.4em;
+}
+.kx-markdown ul {
+  list-style: disc;
+}
+.kx-markdown ol {
+  list-style: decimal;
+}
+.kx-markdown ul:has(> li > input[type="checkbox"]) {
+  list-style: none;
+  padding-left: 0.2em;
+}
+.kx-markdown li + li {
+  margin-top: 0.2em;
+}
+.kx-markdown li > input[type="checkbox"] {
+  margin: 0 0.4em 0 0;
+}
+.kx-markdown a {
+  color: var(--kx-ant-color-primary);
+}
+.kx-markdown code {
+  font-family: var(--kx-ant-font-family-code);
+  font-size: 0.9em;
+  padding: 0.1em 0.3em;
+  background: var(--kx-ant-color-fill-tertiary);
+}
+.kx-markdown pre {
+  padding: 8px 10px;
+  overflow: auto;
+  background: var(--kx-ant-color-fill-tertiary);
+}
+.kx-markdown pre code {
+  padding: 0;
+  background: none;
+}
+.kx-markdown blockquote {
+  padding-left: 0.8em;
+  color: var(--kx-ant-color-text-secondary);
+  border-left: 3px solid var(--kx-ant-color-border);
+}
+.kx-markdown table {
+  border-collapse: collapse;
+}
+.kx-markdown :where(th, td) {
+  padding: 4px 8px;
+  border: 1px solid var(--kx-ant-color-border);
+}
+.kx-markdown hr {
+  border: 0;
+  border-top: 1px solid var(--kx-ant-color-border);
+}

@@ -1,13 +1,15 @@
 import { useNavigate, useParams } from "react-router";
 import { useAppDispatch } from "../../app/hooks";
-import { EmptyMain } from "../workbench/EmptyMain";
 import { paths } from "../workbench/navigation";
 import { Panes } from "../workbench/Panes";
 import { mobileViewChanged } from "../workbench/workbenchSlice";
 import { AgentEditor } from "./AgentEditor";
-import { AgentsSide } from "./AgentsSide";
+import { AgentsHome } from "./AgentsHome";
 
-/** Agents as code: the list of agent files and the selected one in the editor. */
+/**
+ * Agents as code. Without an agent open it lists them; with one open the editor takes the
+ * page, and its explorer switches between agents.
+ */
 export function AgentsPage() {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
@@ -18,13 +20,8 @@ export function AgentsPage() {
   };
   return (
     <Panes
-      side={<AgentsSide selected={agentName} onOpen={open} />}
       main={
-        agentName ? (
-          <AgentEditor key={agentName} name={agentName} />
-        ) : (
-          <EmptyMain text="Choose an agent or create a new one." />
-        )
+        agentName ? <AgentEditor key={agentName} name={agentName} /> : <AgentsHome onOpen={open} />
       }
     />
   );

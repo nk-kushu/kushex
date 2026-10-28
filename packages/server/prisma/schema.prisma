@@ -20,8 +20,38 @@ model Project {
   description String?    @db.VarChar(2000)
   createdAt   DateTime   @default(now())
   workspace   Workspace?
+  chatThreads ChatThread[]
 
   @@index([actorId, createdAt, id])
+  @@schema("kushex")
+}
+
+model ChatThread {
+  id        String     @id @default(uuid()) @db.Uuid
+  projectId String     @db.Uuid
+  actorId   String
+  title     String     @db.VarChar(200)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  project   Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  turns     ChatTurn[]
+
+  @@index([actorId, projectId, updatedAt])
+  @@schema("kushex")
+}
+
+model ChatTurn {
+  id        String     @id @db.Uuid
+  threadId  String     @db.Uuid
+  agentName String     @db.VarChar(63)
+  message   String
+  files     Json
+  debug     Boolean
+  events    Json
+  createdAt DateTime   @default(now())
+  thread    ChatThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+
+  @@index([threadId, createdAt, id])
   @@schema("kushex")
 }
 
@@ -60,5 +90,36 @@ model UserSettings {
   splitterSizes Json  @default("{}")
   updatedAt DateTime  @updatedAt
 
+  @@schema("kushex")
+}
+
+// An agent's code notes as one markdown document, in the format of the UI's `serializeNotes`.
+model AgentCodeNotes {
+  agentName String   @id @db.VarChar(63)
+  content   String
+  /// Bumped on every save; a save must name the revision it was based on.
+  revision  Int
+  updatedAt DateTime @updatedAt
+
+  @@schema("kushex")
+}
+
+// The kushibot debug-event streams a chat run produced. The events themselves are kushibot's:
+// `kushibot.kushibot_debug_events`, written through kushibot's SqlDebugEventStore. A stream
+// belongs to one run.
+model AgentRunDebugStream {
+  scopeId        String   @db.VarChar(256)
+  scopeProjectId String   @db.VarChar(256)
+  streamId       String   @db.VarChar(300)
+  workspaceId    String?  @db.VarChar(256)
+  runId          String   @db.Uuid
+  actorId        String
+  projectId      String   @db.Uuid
+  agentName      String   @db.VarChar(63)
+  runStartedAt   DateTime
+  createdAt      DateTime @default(now())
+
+  @@id([scopeId, scopeProjectId, streamId])
+  @@index([runId, createdAt])
   @@schema("kushex")
 }

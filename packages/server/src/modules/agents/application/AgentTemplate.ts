@@ -4,9 +4,13 @@ import type { AgentName } from "../domain/AgentName.js";
 export class AgentTemplate {
   render(name: AgentName): string {
     return `import {
+  DebugRecordingModelGateway,
   FrameworkConfigurationContract,
   FrameworkConfigurationResolver,
+  OpenAiHttpTransport,
+  OpenAiTextGatewayFactory,
   type FrameworkConfiguration,
+  type IScopedDebugRecorderFactory,
   type ModelProfileRegistration,
 } from "kushibot";
 
@@ -51,6 +55,48 @@ const agent = {
     ).resolve(overrides);
   },
 };
+
+/** What the Kushex chat passes to \`chat\`; see agents/README.md. */
+export interface ChatRequest {
+  readonly message: string;
+  /** Workspace-relative files attached to the message. */
+  readonly files: readonly string[];
+  /** Absolute path of the project checkout. */
+  readonly workspace: string;
+  readonly signal: AbortSignal;
+  progress(message: string): void;
+  /** Records kushibot debug events, shown on the run's Debug events page. */
+  readonly debug?: IScopedDebugRecorderFactory;
+}
+
+/** Runs one chat message: a single model call with the agent's instructions. */
+export async function chat(request: ChatRequest): Promise<string> {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) throw new Error("Set OPENAI_API_KEY on the Kushex server to run this agent.");
+  const runId = crypto.randomUUID();
+  const debug = request.debug?.create({
+    scope: { scopeId: "kushex-chat", projectId: agent.name },
+    identity: { runId, operationId: runId },
+  });
+  const openAi = new OpenAiTextGatewayFactory(() => new OpenAiHttpTransport(apiKey, fetch)).create(
+    model.profile,
+  );
+  const gateway = debug ? new DebugRecordingModelGateway(openAi, debug) : openAi;
+  debug?.event("progress.reported", "info", { summary: \`Asking \${model.profile.modelId}\` });
+  request.progress(\`Asking \${model.profile.modelId}\`);
+  const reply = await gateway.generate(
+    {
+      instructions: agent.instructions,
+      messages: [{ role: "user", text: request.message }],
+      maxOutputTokens: model.profile.maxOutputTokens,
+      inputTokenUpperBound: model.profile.contextTokens,
+      promptCacheKey: null,
+    },
+    { operationId: runId, signal: request.signal, deadlineEpochMs: null, timeoutMs: 120_000 },
+  );
+  if (reply.status !== "completed") throw new Error(\`The model reply is \${reply.status}.\`);
+  return reply.text;
+}
 
 export default agent;
 `;

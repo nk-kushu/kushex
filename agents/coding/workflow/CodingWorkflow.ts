@@ -4,7 +4,6 @@ import {
   ExecutorRegistration,
   ExecutorRegistry,
   JsonValueContract,
-  StepExecutionError,
   StepPolicyRegistry,
   StructuredTaskExecutor,
   TaskInputContract,
@@ -12,13 +11,11 @@ import {
   type EditingResult,
   type IAgentTaskFactory,
   type IClock,
-  type IPolicy,
-  type JsonValue,
-  type StepInputPolicyInput,
   type TaskInput,
   type WorkflowDefinition,
 } from "kushibot";
-import { editingInstructions, planningInstructions } from "./prompts/instructions";
+import { CodingInputPolicy } from "../policies/CodingInputPolicy";
+import { editingInstructions, planningInstructions } from "../prompts/instructions";
 
 /** Owns the plan-before-edit dependency and the policies that pass its accepted result. */
 export class CodingWorkflow {
@@ -33,31 +30,33 @@ export class CodingWorkflow {
     const tasks = new TaskInputContract(json);
     const edits = new EditingResultContract(json);
     const executors = new ExecutorRegistry();
+    
     executors.register(
-      new ExecutorRegistration(
-        "coding-plan",
-        "1",
-        tasks,
-        tasks,
-        new StructuredTaskExecutor(
-          tasks,
-          tasks,
-          new DefaultAgentAssignmentPolicy(planningInstructions),
-          this.planner,
+      new ExecutorRegistration({
+        id: "coding-plan",
+        version: "1",
+        input: tasks,
+        result: tasks,
+        executor: new StructuredTaskExecutor({
+          input: tasks,
+          result: tasks,
+          policy: new DefaultAgentAssignmentPolicy(planningInstructions),
+          factory: this.planner,
           json,
-          this.clock,
-        ),
+          clock: this.clock,
+        }),
         json,
-        this.clock,
-      ),
+        clock: this.clock,
+      }),
     );
+
     executors.register(
-      new ExecutorRegistration(
-        "coding-edit",
-        "1",
-        tasks,
-        edits,
-        new WorkspaceEditingExecutor(
+      new ExecutorRegistration({
+        id: "coding-edit",
+        version: "1",
+        input: tasks,
+        result: edits,
+        executor: new WorkspaceEditingExecutor(
           tasks,
           edits,
           new DefaultAgentAssignmentPolicy(editingInstructions),
@@ -66,19 +65,22 @@ export class CodingWorkflow {
           this.clock,
         ),
         json,
-        this.clock,
-      ),
+        clock: this.clock,
+      }),
     );
 
     const policies = new StepPolicyRegistry();
+    
     policies.registerInput(
       { id: "coding-plan-input", version: "1" },
       new CodingInputPolicy(false, tasks, json),
     );
+
     policies.registerInput(
       { id: "coding-edit-input", version: "1" },
       new CodingInputPolicy(true, tasks, json),
     );
+
     policies.registerAcceptance(
       { id: "coding-plan-accept", version: "1" },
       {
@@ -94,6 +96,7 @@ export class CodingWorkflow {
         },
       },
     );
+
     policies.registerAcceptance(
       { id: "coding-edit-accept", version: "1" },
       {
@@ -109,6 +112,7 @@ export class CodingWorkflow {
         },
       },
     );
+    
     const definition: WorkflowDefinition = {
       id: "coding",
       version: "1",
@@ -134,37 +138,5 @@ export class CodingWorkflow {
       ],
     };
     return { definition, executors, policies };
-  }
-}
-
-class CodingInputPolicy implements IPolicy<StepInputPolicyInput, JsonValue> {
-  constructor(
-    private readonly requiresPlan: boolean,
-    private readonly tasks: TaskInputContract,
-    private readonly json: JsonValueContract,
-  ) {}
-
-  async apply(view: StepInputPolicyInput): Promise<JsonValue> {
-    const request = await this.tasks.validate(view.request);
-    if (!request.valid) throw new StepExecutionError();
-    if (!this.requiresPlan) return this.asJson(request.value);
-    const accepted = view.dependencies.find((item) => item.stepId === "plan");
-    if (!accepted) throw new StepExecutionError();
-    const plan = await this.tasks.validate(accepted.result);
-    if (!plan.valid) throw new StepExecutionError();
-    // Keep original authorization and requirements authoritative; the plan is guidance.
-    return this.asJson({
-      ...request.value,
-      goal: request.value.goal,
-      sourceRefs: [...new Set([...request.value.sourceRefs, accepted.receiptRef])],
-    });
-  }
-
-  private async asJson(value: TaskInput): Promise<JsonValue> {
-    const task = await this.tasks.validate(value);
-    if (!task.valid) throw new StepExecutionError();
-    const result = await this.json.validate(task.value);
-    if (!result.valid) throw new StepExecutionError();
-    return result.value;
   }
 }

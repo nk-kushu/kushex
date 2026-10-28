@@ -1,16 +1,31 @@
 import {
   IconAdjustments,
+  IconArrowForwardUp,
+  IconArrowLeft,
+  IconArrowUp,
   IconAt,
+  IconBug,
   IconChecklist,
+  IconFile,
   IconFiles,
   IconLayoutGrid,
   IconNotes,
+  IconMessagePlus,
   IconPaperclip,
   IconPin,
+  IconPlayerPause,
+  IconPlayerPlay,
+  IconPlayerStop,
   IconPlus,
+  IconRefresh,
   IconRobot,
   IconSearch,
+  IconSparkles,
   IconSettings,
+  IconStepInto,
+  IconStepOut,
+  IconTimelineEvent,
+  IconTrash,
   IconUser,
 } from "@tabler/icons-react";
 
@@ -28,3 +43,18 @@ export const MentionIcon = IconAt;
 export const AttachIcon = IconPaperclip;
 export const PinIcon = IconPin;
 export const FilterIcon = IconAdjustments;
+export const NewChatIcon = IconMessagePlus;
+export const DebugIcon = IconBug;
+export const ContinueIcon = IconPlayerPlay;
+export const PauseIcon = IconPlayerPause;
+export const StopIcon = IconPlayerStop;
+export const StepOverIcon = IconArrowForwardUp;
+export const StepIntoIcon = IconStepInto;
+export const StepOutIcon = IconStepOut;
+export const RemoveIcon = IconTrash;
+export const SendIcon = IconArrowUp;
+export const FileIcon = IconFile;
+export const ChatStartIcon = IconSparkles;
+export const DebugEventsIcon = IconTimelineEvent;
+export const BackIcon = IconArrowLeft;
+export const RefreshIcon = IconRefresh;

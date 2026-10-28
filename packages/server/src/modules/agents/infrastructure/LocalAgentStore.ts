@@ -1,13 +1,13 @@
 import { createHash, randomUUID } from "node:crypto";
-import { constants } from "node:fs";
-import { lstat, mkdir, open, readdir, rename, rm, writeFile } from "node:fs/promises";
+import { constants, watch } from "node:fs";
+import { lstat, mkdir, open, readdir, realpath, rename, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { TextDecoder } from "node:util";
 import type { AgentDto, AgentFileDto, AgentSummaryDto } from "@kushex/contracts";
 import { ConflictError } from "../../../errors/ConflictError.js";
 import { NotFoundError } from "../../../errors/NotFoundError.js";
 import { PayloadTooLargeError } from "../../../errors/PayloadTooLargeError.js";
-import type { AgentStore } from "../application/AgentStore.js";
+import type { AgentEntry, AgentStore } from "../application/AgentStore.js";
 import { AgentFilePath } from "../domain/AgentFilePath.js";
 import { AgentName, MAX_AGENT_SOURCE_BYTES } from "../domain/AgentName.js";
 
@@ -29,6 +29,8 @@ type Limits = Readonly<{
  */
 export class LocalAgentStore implements AgentStore {
   private static readonly primaryFile = new AgentFilePath("agent.ts");
+  /** Bursts of file events, such as a tool rewriting several files, become one change. */
+  private static readonly watchDelayMs = 150;
   private readonly limits: Limits;
   private writes: Promise<unknown> = Promise.resolve();
 
@@ -81,6 +83,16 @@ export class LocalAgentStore implements AgentStore {
     };
   }
 
+  async entry(name: AgentName): Promise<AgentEntry> {
+    await this.requireAgent(name);
+    // Real paths, as the agent's module URLs show them when it runs.
+    const directory = await realpath(this.folderPath(name));
+    return {
+      directory,
+      primaryFile: path.join(directory, ...LocalAgentStore.primaryFile.segments),
+    };
+  }
+
   create(name: AgentName, primarySource: string): Promise<AgentDto> {
     return this.serialized(async () => {
       if (await this.primaryInfo(name))
@@ -123,6 +135,30 @@ export class LocalAgentStore implements AgentStore {
       await this.write(name, file, content);
       return this.requireText(name, file);
     });
+  }
+
+  async watch(
+    name: AgentName,
+    onChange: () => void,
+    onError: (error: unknown) => void,
+  ): Promise<() => void> {
+    await this.requireAgent(name);
+    let timer: NodeJS.Timeout | undefined;
+    const watcher = watch(this.folderPath(name), { recursive: true }, (_event, file) => {
+      // Hidden names, such as the temporary files of a write, are not agent files.
+      if (file && file.split(path.sep).some((segment) => segment.startsWith("."))) return;
+      clearTimeout(timer);
+      timer = setTimeout(onChange, LocalAgentStore.watchDelayMs);
+    });
+    const close = () => {
+      clearTimeout(timer);
+      watcher.close();
+    };
+    watcher.on("error", (error) => {
+      close();
+      onError(error);
+    });
+    return close;
   }
 
   /** Paths of the regular files below `folder`, skipping links, hidden and unaddressable names. */

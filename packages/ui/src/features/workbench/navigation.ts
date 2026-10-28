@@ -10,6 +10,10 @@ export const paths = {
   /** Files of a project, or the empty Files page when no project is open. */
   files: (projectId?: string | null) =>
     projectId ? `/projects/${encodeURIComponent(projectId)}/files` : "/files",
+  /** The kushibot debug events one chat run recorded. */
+  runDebugEvents: (projectId: string, runId: string) =>
+    `/projects/${encodeURIComponent(projectId)}/runs/${encodeURIComponent(runId)}/debug-events`,
+  chatThreads: (projectId: string) => `/projects/${encodeURIComponent(projectId)}/chat-threads`,
   tasks: (taskId?: string) => (taskId ? `/tasks/${encodeURIComponent(taskId)}` : "/tasks"),
   notes: (noteId?: string) => (noteId ? `/notes/${encodeURIComponent(noteId)}` : "/notes"),
   agents: (name?: string) => (name ? `/agents/${encodeURIComponent(name)}` : "/agents"),
@@ -18,6 +22,8 @@ export const paths = {
 
 const activityPatterns: readonly [Activity, string][] = [
   ["files", "/projects/:projectId/files/*"],
+  ["files", "/projects/:projectId/runs/*"],
+  ["files", "/projects/:projectId/chat-threads/*"],
   ["files", "/files/*"],
   ["projects", "/projects/*"],
   ["tasks", "/tasks/*"],

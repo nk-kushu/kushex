@@ -10,11 +10,13 @@ import {
   settingsLoadFailed,
   settingsSaveErrorChanged,
 } from "../features/settings/settingsSlice";
+import { addRunListeners } from "../features/runs/runListeners";
 import { kushexApi } from "../shared/api/kushexApi";
 import type { AppDispatch, RootState } from "./store";
+import type { StoreOptions } from "./storeOptions";
 
 /** Hydration and save ordering belong to one panel store. */
-export function createListeners() {
+export function createListeners(options: StoreOptions = {}) {
   const listenerMiddleware = createListenerMiddleware();
   const startListening = listenerMiddleware.startListening as TypedStartListening<
     RootState,
@@ -87,6 +89,8 @@ export function createListeners() {
       });
     },
   });
+
+  addRunListeners(startListening, options);
 
   return listenerMiddleware;
 }

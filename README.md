@@ -46,6 +46,13 @@ type-check `import ... from "kushibot"` in the editor, set `KUSHEX_KUSHIBOT_DIR`
 a built kushibot checkout visible to the backend, for example in
 `docker/compose.local.yml`; without it the editor works untyped.
 
+The chat panel runs an agent on the open project, and **Debug** runs it under a
+breakpoint debugger in the agent editor; see [running and debugging](agents/README.md#running-and-debugging-from-the-chat).
+The coding agent uses Codex CLI and its saved `auth.json`, with no API key.
+Run `codex login` on the host; Compose mounts `~/.codex` into the backend (override
+the host directory with `KUSHEX_CODEX_HOME_HOST`). Set `CODEX_MODEL` to select a
+model. Other agents using OpenAI HTTP still use `OPENAI_API_KEY`.
+
 Open <http://localhost:3050>. Backend liveness is <http://localhost:3050/api/health>
 and readiness (database and migrations) is <http://localhost:3050/api/health/ready>.
 The backend and PostgreSQL use the internal Docker network. Only the frontend

@@ -1,7 +1,13 @@
 export { AgentService } from "./application/AgentService.js";
 export { AgentTemplate } from "./application/AgentTemplate.js";
-export type { AgentStore } from "./application/AgentStore.js";
+export type { AgentEntry, AgentStore } from "./application/AgentStore.js";
 export type { LibraryTypesSource } from "./application/LibraryTypesSource.js";
 export { LocalAgentStore } from "./infrastructure/LocalAgentStore.js";
 export { KushibotTypesReader } from "./infrastructure/KushibotTypesReader.js";
 export { AgentsController } from "./transport/AgentsController.js";
+export { AgentName } from "./domain/AgentName.js";
+export { AgentFilePath } from "./domain/AgentFilePath.js";
+export { CodeNotesService } from "./application/CodeNotesService.js";
+export type { CodeNotesRepository } from "./application/CodeNotesRepository.js";
+export { PrismaCodeNotesRepository } from "./infrastructure/PrismaCodeNotesRepository.js";
+export { CodeNotesController } from "./transport/CodeNotesController.js";

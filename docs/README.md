@@ -10,6 +10,14 @@ debug traces and publication approvals.
 | --- | --- |
 | [harness-plan.md](harness-plan.md) | Wireframe of the harness panel: regions and the Projects, Files, Chat, Tasks, Notes and Settings screens |
 
+## Ideas
+
+Product ideas and plans for future features.
+
+| Doc | What it covers |
+| --- | --- |
+| [ideas/tree-conversations.md](ideas/tree-conversations.md) | Branching chats from selected agent text, inherited context, tree navigation, and delivery phases |
+
 ## Frontend
 
 | Doc | What it covers |

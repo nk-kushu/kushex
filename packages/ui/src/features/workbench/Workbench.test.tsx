@@ -30,19 +30,6 @@ describe("Workbench", () => {
     expect(screen.getByRole("status")).toHaveTextContent("Project one · alpha");
   });
 
-  it("opens a diff tab from the chat changes card", async () => {
-    const user = userEvent.setup();
-    render(<KushexPanel />);
-    await user.click(await screen.findByRole("button", { name: "Open Project one" }));
-    await user.click(screen.getByRole("button", { name: "Review" }));
-
-    expect(screen.getByRole("tab", { name: /Δ file\.ts/ })).toHaveAttribute(
-      "aria-selected",
-      "true",
-    );
-    expect(screen.getByRole("button", { name: "Accept" })).toBeInTheDocument();
-  });
-
   it("switches screens from the activity bar", async () => {
     const user = userEvent.setup();
     render(<KushexPanel />);
@@ -62,6 +49,32 @@ describe("Workbench", () => {
 
     await user.click(within(activities).getByRole("button", { name: "Settings" }));
     expect(screen.getByRole("heading", { name: "Settings" })).toBeInTheDocument();
+  });
+
+  it("makes activities links that open in a new tab when pages have URLs", async () => {
+    window.history.replaceState(null, "", "/kushex/projects");
+    const user = userEvent.setup();
+    render(<KushexPanel router="browser" basename="/kushex" />);
+    const activities = screen.getByRole("navigation", { name: "Activities" });
+
+    // Middle-click, Ctrl/Cmd-click and "Open in new tab" use the link's URL.
+    expect(within(activities).getByRole("link", { name: "Agents" })).toHaveAttribute(
+      "href",
+      "/kushex/agents",
+    );
+    expect(within(activities).getByRole("link", { name: "Projects" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+
+    // A plain click still switches the page inside the panel.
+    await user.click(within(activities).getByRole("link", { name: "Settings" }));
+    expect(screen.getByRole("heading", { name: "Settings" })).toBeInTheDocument();
+    expect(window.location.pathname).toBe("/kushex/settings");
+    expect(within(activities).getByRole("link", { name: "Settings" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
   });
 });
 
@@ -135,7 +148,7 @@ describe("Workbench routes", () => {
     expect(screen.getByRole("heading", { name: "Projects" })).toBeInTheDocument();
     expect(window.location.pathname).toBe("/kushex/projects");
 
-    await user.click(within(screen.getByRole("navigation", { name: "Activities" })).getByRole("button", { name: "Notes" }));
+    await user.click(within(screen.getByRole("navigation", { name: "Activities" })).getByRole("link", { name: "Notes" }));
     expect(window.location.pathname).toBe("/kushex/notes/n1");
     window.history.replaceState(null, "", "/");
   });

@@ -42,7 +42,19 @@ services:
       KUSHEX_WORKSPACES_ROOT: /workspaces
       KUSHEX_AGENTS_DIR: /agents
       KUSHEX_ALLOWED_ORIGINS: http://localhost:3050,http://127.0.0.1:3050
+      # Agents run from the chat read model credentials from the backend's environment.
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-}
+      # The coding agent uses saved Codex CLI authentication, not an API key.
+      CODEX_HOME: /codex
+      CODEX_MODEL: ${CODEX_MODEL:-gpt-6.1-sol}
     volumes:
+      # Writable directory: Codex refreshes auth.json atomically during use.
+      - type: bind
+        source: ${KUSHEX_CODEX_HOME_HOST:-${HOME}/.codex}
+        target: /codex
+        bind:
+          create_host_path: false
       - type: bind
         source: ${KUSHEX_WORKSPACES_HOST_ROOT:-../workspaces}
         target: /workspaces

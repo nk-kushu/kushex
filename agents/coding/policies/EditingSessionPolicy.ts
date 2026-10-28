@@ -5,52 +5,20 @@ import {
   type AgentTaskBindingRequest,
   type EditingResult,
   type IPolicy,
-  type TaskInput,
 } from "kushibot";
-import type { WorkspaceTools } from "./WorkspaceTools";
+import type { WorkspaceTools } from "../WorkspaceTools";
 
-/** Coding-specific context and acceptance; Kushibot owns session/model execution. */
-export class PlanningSessionPolicy implements IPolicy<
-  AgentTaskBindingRequest,
-  IAgentSessionBinding<TaskInput>
-> {
-  constructor(
-    private readonly runtime: AgentRunRuntime,
-    private readonly workspace: WorkspaceTools,
-  ) {}
-  async apply(request: AgentTaskBindingRequest): Promise<IAgentSessionBinding<TaskInput>> {
-    await this.runtime.context.reporter.progress("Planning implementation.");
-    const input = await new JsonValueContract().validate({
-      task: request.input,
-      acceptedPlan: null,
-    });
-    if (!input.valid) throw new Error("Invalid planning context.");
-    return {
-      input: input.value,
-      instructions: [
-        request.assignment.instructions,
-        this.workspace.description(true),
-        'Final value: {"goal":"ordered plan, <=2048 characters","acceptanceCriteria":["outcomes/checks"],"filePaths":["permitted target"],"sourceRefs":[]}. Inspect files before planning.',
-      ].join("\n"),
-      tools: this.workspace.bind(true),
-      acceptance: {
-        apply: async ({ candidate }) => ({
-          accepted: candidate.filePaths.every((file) => request.input.filePaths.includes(file)),
-          feedback: "Use only files in the original task's allowlist.",
-        }),
-      },
-    };
-  }
-}
-
+/** Binds the accepted plan, editing tools, and implementation acceptance policy. */
 export class EditingSessionPolicy implements IPolicy<
   AgentTaskBindingRequest,
   IAgentSessionBinding<EditingResult>
 > {
+  
   constructor(
     private readonly runtime: AgentRunRuntime,
     private readonly workspace: WorkspaceTools,
   ) {}
+
   async apply(request: AgentTaskBindingRequest): Promise<IAgentSessionBinding<EditingResult>> {
     await this.runtime.context.reporter.progress("Implementing accepted plan.");
     const snapshot = await this.runtime.stores.workflow.read();

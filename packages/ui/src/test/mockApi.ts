@@ -2,8 +2,12 @@ import { vi } from "vitest";
 import type {
   AgentDto,
   AgentFileDto,
+  AgentRunDto,
+  AgentRunEventDto,
+  DebugVariableDto,
   FileContentDto,
   ProjectDto,
+  RecordedDebugEventDto,
   UserSettingsDto,
 } from "@kushex/contracts";
 
@@ -44,11 +48,40 @@ export const exampleAgent: AgentDto = {
 export function mockKushexApi(
   initialProjects: ProjectDto[] = [exampleProject],
   initialAgents: AgentDto[] = [],
+  initialNotes: Record<string, string> = {},
 ) {
   const projects = [...initialProjects];
   const agents = new Map(initialAgents.map((agent) => [agent.name, agent]));
   let revisions = 0;
-  let settings: UserSettingsDto = { colorMode: "system", density: "comfortable", splitterSizes: {} };
+  /** Code notes documents by agent name, as the database keeps them. */
+  const notes = new Map(
+    Object.entries(initialNotes).map(([name, content]) => [name, { content, revision: 1 }]),
+  );
+  /** Bodies of started agent runs, in order. */
+  const runs: Record<string, unknown>[] = [];
+  const threads: {
+    id: string;
+    projectId: string;
+    title: string;
+    createdAt: string;
+    updatedAt: string;
+    turns: unknown[];
+  }[] = [];
+  const debugRequests: {
+    runId: string;
+    action: string;
+    body: Record<string, unknown> | null;
+    ref: string | null;
+  }[] = [];
+  /** Stored kushibot debug events by run id; a cursor is how many the client has. */
+  const debugEvents: Record<string, RecordedDebugEventDto[]> = {};
+  /** Properties the debugger lists, by object ref. */
+  const variables: Record<string, DebugVariableDto[]> = {};
+  let settings: UserSettingsDto = {
+    colorMode: "system",
+    density: "comfortable",
+    splitterSizes: {},
+  };
   const files: Record<string, FileContentDto> = {
     "src/index.ts": {
       path: "src/index.ts",
@@ -87,7 +120,10 @@ export function mockKushexApi(
     if (route === "/agents" && request.method === "POST") {
       const { name } = (await request.json()) as { name: string };
       if (agents.has(name))
-        return respond({ code: "CONFLICT", message: `An agent named "${name}" already exists.` }, 409);
+        return respond(
+          { code: "CONFLICT", message: `An agent named "${name}" already exists.` },
+          409,
+        );
       const agent: AgentDto = {
         ...exampleAgent,
         name,
@@ -101,12 +137,30 @@ export function mockKushexApi(
         entries: [...agents.values()].map(({ name, updatedAt }) => ({ name, updatedAt })),
         nextOffset: null,
       });
+    const notesRoute = /^\/agents\/([^/]+)\/notes$/.exec(route);
+    if (notesRoute) {
+      const name = decodeURIComponent(notesRoute[1]!);
+      if (!agents.has(name))
+        return respond({ code: "NOT_FOUND", message: "Agent not found." }, 404);
+      const stored = notes.get(name) ?? { content: "", revision: 0 };
+      if (request.method !== "PUT") return respond(stored);
+      const body = (await request.json()) as { content: string; baseRevision: number };
+      if (body.baseRevision !== stored.revision)
+        return respond({ code: "CONFLICT", message: "Notes changed since they were loaded." }, 409);
+      const next = { content: body.content, revision: stored.revision + 1 };
+      notes.set(name, next);
+      return respond(next);
+    }
     const agentRoute = /^\/agents\/([^/]+)(\/files)?$/.exec(route);
     if (agentRoute) {
       const agent = agents.get(decodeURIComponent(agentRoute[1]!));
       if (!agent) return respond({ code: "NOT_FOUND", message: "Agent not found." }, 404);
       if (!agentRoute[2]) return respond(agent);
-      const body = (await request.json()) as { path: string; content?: string; baseRevision?: string };
+      const body = (await request.json()) as {
+        path: string;
+        content?: string;
+        baseRevision?: string;
+      };
       const existing = agent.files.find((file) => file.path === body.path);
       let file: AgentFileDto;
       if (request.method === "POST") {
@@ -123,6 +177,89 @@ export function mockKushexApi(
         files: [...agent.files.filter((entry) => entry.path !== body.path), file],
       });
       return respond(file, request.method === "POST" ? 201 : 200);
+    }
+    const threadRoute = /^\/projects\/([^/]+)\/chat-threads(?:\/([^/]+))?$/.exec(route);
+    if (threadRoute) {
+      const projectId = threadRoute[1]!;
+      const id = threadRoute[2];
+      if (request.method === "POST") {
+        const date = new Date().toISOString();
+        const thread = {
+          id: `thread-${threads.length + 1}`,
+          projectId,
+          title: "New chat",
+          createdAt: date,
+          updatedAt: date,
+          turns: [],
+        };
+        threads.push(thread);
+        return respond(thread, 201);
+      }
+      if (request.method === "GET")
+        return respond(
+          id
+            ? threads.find((thread) => thread.id === id)
+            : threads.filter((thread) => thread.projectId === projectId),
+        );
+      if (request.method === "DELETE") {
+        for (let index = threads.length - 1; index >= 0; index--)
+          if (threads[index]!.projectId === projectId && (!id || threads[index]!.id === id))
+            threads.splice(index, 1);
+        return new Response(null, { status: 204 });
+      }
+    }
+    const startRun = /^\/projects\/([^/]+)\/agent-runs$/.exec(route);
+    if (startRun && request.method === "POST") {
+      const body = (await request.json()) as { agentName: string; debug: boolean };
+      runs.push(body);
+      const run: AgentRunDto = {
+        id: `run-${runs.length}`,
+        projectId: startRun[1]!,
+        agentName: body.agentName,
+        debug: body.debug,
+        status: "starting",
+        startedAt: "2026-10-26T00:00:00.000Z",
+      };
+      return respond(run, 201);
+    }
+    const debugEventsRoute = /^\/agent-runs\/([^/]+)\/debug-events$/.exec(route);
+    if (debugEventsRoute) {
+      const runId = debugEventsRoute[1]!;
+      const stored = debugEvents[runId] ?? [];
+      const after = Number(url.searchParams.get("after") ?? 0);
+      return respond({
+        run: {
+          id: runId,
+          projectId: exampleProject.id,
+          agentName: "reviewer",
+          status: "completed",
+          startedAt: "2026-10-26T00:00:00.000Z",
+        },
+        recording: true,
+        events: stored.slice(after),
+        cursor: String(stored.length),
+        more: false,
+      });
+    }
+    const runRoute = /^\/agent-runs\/([^/]+)\/(debug|cancel|evaluate|variables|breakpoints)$/.exec(
+      route,
+    );
+    if (runRoute) {
+      const action = runRoute[2]!;
+      const body =
+        request.method === "GET" || action === "cancel"
+          ? null
+          : ((await request.json()) as Record<string, unknown>);
+      debugRequests.push({ runId: runRoute[1]!, action, body, ref: url.searchParams.get("ref") });
+      if (action === "variables")
+        return respond({
+          entries: variables[url.searchParams.get("ref") ?? ""] ?? [],
+          nextOffset: null,
+        });
+      if (action === "evaluate")
+        return respond({ type: "number", value: `${String(body?.expression)} = 2`, ref: null });
+      if (action === "breakpoints") return respond({ breakpoints: [] });
+      return new Response(null, { status: 204 });
     }
     if (route === "/projects" && request.method === "POST") {
       const body = (await request.json()) as { name: string; path: string };
@@ -171,5 +308,42 @@ export function mockKushexApi(
       : respond({ code: "NOT_FOUND", message: "Project not found." }, 404);
   });
   vi.stubGlobal("fetch", fetch);
-  return { fetch, files, projects, agents };
+  return {
+    fetch,
+    files,
+    projects,
+    agents,
+    notes,
+    runs,
+    threads,
+    debugRequests,
+    variables,
+    debugEvents,
+  };
+}
+
+/** Stands in for the browser's EventSource; tests push run events through `emit`. */
+export class FakeEventSource {
+  static readonly CLOSED = 2;
+  static readonly instances: FakeEventSource[] = [];
+  readyState = 1;
+  onmessage: ((message: MessageEvent<string>) => void) | null = null;
+  onerror: (() => void) | null = null;
+  constructor(readonly url: string | URL) {
+    FakeEventSource.instances.push(this);
+  }
+  emit(event: AgentRunEventDto) {
+    this.onmessage?.(new MessageEvent("message", { data: JSON.stringify(event) }));
+  }
+  close() {
+    this.readyState = FakeEventSource.CLOSED;
+  }
+  /** The stream of a run, e.g. `run-1`. */
+  static of(runId: string): FakeEventSource {
+    const source = FakeEventSource.instances.find((instance) =>
+      String(instance.url).endsWith(`/agent-runs/${runId}/events`),
+    );
+    if (!source) throw new Error(`No event stream for ${runId}`);
+    return source;
+  }
 }

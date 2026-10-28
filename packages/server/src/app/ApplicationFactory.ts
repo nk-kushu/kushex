@@ -20,9 +20,20 @@ import {
   AgentService,
   AgentTemplate,
   AgentsController,
+  CodeNotesController,
+  CodeNotesService,
   KushibotTypesReader,
   LocalAgentStore,
+  PrismaCodeNotesRepository,
 } from "../modules/agents/public.js";
+import {
+  AgentRunDebugEvents,
+  AgentRunService,
+  AgentRunsController,
+  ChildProcessAgentLauncher,
+  KushibotDebugEventLog,
+  PrismaDebugStreamRepository,
+} from "../modules/agent-runs/public.js";
 import { RequestContextFactory } from "../transport/http/RequestContextFactory.js";
 import { LocalOperatorActorResolver } from "../transport/http/LocalOperatorActorResolver.js";
 import { LocalRequestGuard } from "../transport/http/LocalRequestGuard.js";
@@ -31,12 +42,15 @@ import { type Logger as PinoLogger, pino } from "pino";
 import type { ServerConfig } from "../config/ServerConfig.js";
 import { DatabaseReadinessCheck } from "../infrastructure/database/DatabaseReadinessCheck.js";
 import { PrismaDatabase } from "../infrastructure/database/PrismaDatabase.js";
+import { PostgresSqlDatabase } from "../infrastructure/database/PostgresSqlDatabase.js";
 import { PrismaMigrationReadinessCheck } from "../infrastructure/database/PrismaMigrationReadinessCheck.js";
 import { ErrorResponder } from "../transport/http/ErrorResponder.js";
 import { HealthController } from "../transport/http/HealthController.js";
 import { HttpServer } from "../transport/http/HttpServer.js";
 import { Application } from "./Application.js";
 import { ReadinessProbe } from "./health/ReadinessProbe.js";
+import { ChatThreads } from "../modules/chat-threads/ChatThreads.js";
+import { ChatThreadsController } from "../modules/chat-threads/ChatThreadsController.js";
 
 /** Readiness must answer within the Compose probe timeout (3 s). */
 const READINESS_TIMEOUT_MS = 2000;
@@ -66,15 +80,41 @@ export class ApplicationFactory {
       this.logger,
     );
     const contexts = new RequestContextFactory(new LocalOperatorActorResolver());
-    const filesystem = new LocalWorkspaceFileSystem(
-      new WorkspacePathResolver(this.config.workspacesRoots),
-    );
+    const workspacePaths = new WorkspacePathResolver(this.config.workspacesRoots);
+    const filesystem = new LocalWorkspaceFileSystem(workspacePaths);
     const workspaces = new WorkspaceService(
       new PrismaWorkspaceRepository(database.client),
       filesystem,
     );
     const projects = new ProjectService(new PrismaProjectRepository(database.client), workspaces);
+    const threads = new ChatThreads(database.client, projects, this.logger);
     const files = new FileService(workspaces, filesystem);
+    const agents = new AgentService(
+      new LocalAgentStore(this.config.agentsDirectory),
+      new AgentTemplate(),
+      new KushibotTypesReader(this.config.kushibotDirectory),
+    );
+    // kushibot's debug-event tables, in their own schema next to Prisma's `kushex`.
+    const kushibotDatabase = new PostgresSqlDatabase({
+      url: this.config.database.url,
+      schema: "kushibot",
+      maxConnections: 4,
+      connectionTimeoutMs: this.config.database.connectionTimeoutMs,
+    });
+    const debugEvents = new AgentRunDebugEvents(
+      new KushibotDebugEventLog(this.config.kushibotDirectory, kushibotDatabase),
+      new PrismaDebugStreamRepository(database.client),
+      this.logger,
+    );
+    const runs = new AgentRunService(
+      workspaces,
+      workspacePaths,
+      agents,
+      new ChildProcessAgentLauncher(this.config.kushibotDirectory, this.logger),
+      debugEvents,
+      {},
+      threads,
+    );
     const http = new HttpServer(
       this.config.http,
       this.logger,
@@ -87,17 +127,21 @@ export class ApplicationFactory {
         ),
         new LocationsController(workspaces, contexts),
         new ProjectsController(projects, contexts),
+        new ChatThreadsController(threads, contexts),
         new FilesController(files, contexts),
-        new AgentsController(
-          new AgentService(
-            new LocalAgentStore(this.config.agentsDirectory),
-            new AgentTemplate(),
-            new KushibotTypesReader(this.config.kushibotDirectory),
-          ),
+        new AgentsController(agents),
+        new CodeNotesController(
+          new CodeNotesService(new PrismaCodeNotesRepository(database.client), agents),
         ),
+        new AgentRunsController(runs, contexts, debugEvents),
       ],
       new LocalRequestGuard(this.config.allowedOrigins),
     );
-    return new Application([database, http], this.config.shutdownTimeoutMs, this.logger);
+    // Stopped in reverse: agent processes end first, which also closes their event streams.
+    return new Application(
+      [database, kushibotDatabase, http, threads, runs],
+      this.config.shutdownTimeoutMs,
+      this.logger,
+    );
   }
 }

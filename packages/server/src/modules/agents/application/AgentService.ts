@@ -1,7 +1,7 @@
 import type { AgentDto, AgentFileDto, AgentSummaryDto, LibraryTypesDto } from "@kushex/contracts";
 import { AgentFilePath } from "../domain/AgentFilePath.js";
 import { AgentName } from "../domain/AgentName.js";
-import type { AgentStore } from "./AgentStore.js";
+import type { AgentEntry, AgentStore } from "./AgentStore.js";
 import type { AgentTemplate } from "./AgentTemplate.js";
 import type { LibraryTypesSource } from "./LibraryTypesSource.js";
 
@@ -18,6 +18,10 @@ export class AgentService {
 
   find(name: string): Promise<AgentDto> {
     return this.agents.find(new AgentName(name));
+  }
+
+  entry(name: string): Promise<AgentEntry> {
+    return this.agents.entry(new AgentName(name));
   }
 
   /** New agents start from a kushibot template that the user then edits. */
@@ -43,6 +47,10 @@ export class AgentService {
       content,
       baseRevision,
     );
+  }
+
+  watch(name: string, onChange: () => void, onError: (error: unknown) => void) {
+    return this.agents.watch(new AgentName(name), onChange, onError);
   }
 
   types(): Promise<LibraryTypesDto> {
