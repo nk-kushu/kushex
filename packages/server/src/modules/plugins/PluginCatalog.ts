@@ -1,5 +1,4 @@
-import { randomUUID } from "node:crypto";
-import { lstat, mkdir, readFile, readdir, realpath, rename, rm, writeFile } from "node:fs/promises";
+import { lstat, readFile, readdir, realpath } from "node:fs/promises";
 import path from "node:path";
 import { z } from "zod";
 import type {
@@ -28,7 +27,6 @@ export class PluginCatalog implements AgentStore {
   readonly name = "plugin catalog";
   private discovered: Discovered[] = [];
   private readonly registrations = new Map<string, Registration>();
-  private writes: Promise<unknown> = Promise.resolve();
   private readonly manifestSchema = z
     .object({
       id: z.string().regex(AgentName.pattern),
@@ -49,33 +47,20 @@ export class PluginCatalog implements AgentStore {
     })
     .strict();
 
-  constructor(
-    private readonly localDirectory: string,
-    private readonly pluginsDirectory?: string,
-  ) {}
+  constructor(private readonly pluginsDirectory: string) {}
 
   async start(): Promise<void> {
-    let migrationError: unknown;
-    try {
-      await this.migrateLocal();
-    } catch (error) {
-      migrationError = error;
-    }
-    const folders = [this.localDirectory];
-    if (this.pluginsDirectory) {
-      const entries = await readdir(this.pluginsDirectory, { withFileTypes: true }).catch(
-        (error: unknown) => {
-          if (this.isMissing(error)) return [];
-          throw error;
-        },
-      );
-      for (const entry of entries.sort((a, b) => a.name.localeCompare(b.name)))
-        if (entry.isDirectory() || entry.isSymbolicLink())
-          folders.push(path.join(this.pluginsDirectory, entry.name));
-    }
+    const entries = await readdir(this.pluginsDirectory, { withFileTypes: true }).catch(
+      (error: unknown) => {
+        if (this.isMissing(error)) return [];
+        throw error;
+      },
+    );
+    const folders = entries
+      .filter((entry) => entry.isDirectory() || entry.isSymbolicLink())
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map((entry) => path.join(this.pluginsDirectory, entry.name));
     this.discovered = await Promise.all(folders.map((folder) => this.discover(folder)));
-    if (migrationError && this.discovered[0])
-      this.fail(this.discovered[0], `Local migration: ${this.message(migrationError)}`);
     const pluginIds = new Map<string, Discovered[]>();
     const agentIds = new Map<string, Discovered[]>();
     for (const plugin of this.discovered) {
@@ -97,9 +82,7 @@ export class PluginCatalog implements AgentStore {
           this.registrations.set(registration.agent.id, registration);
   }
 
-  async stop(): Promise<void> {
-    await this.writes;
-  }
+  async stop(): Promise<void> {}
   plugins(): readonly PluginDto[] {
     return this.discovered.map((plugin) => plugin.dto);
   }
@@ -126,50 +109,6 @@ export class PluginCatalog implements AgentStore {
     const registration = this.require(name.value);
     await this.verify(registration);
     return this.store(registration).entry(name);
-  }
-
-  create(name: AgentName, primarySource: string): Promise<AgentDto> {
-    const operation = this.writes.then(async () => {
-      if (
-        this.discovered.some((plugin) => plugin.dto.agents.some((agent) => agent.id === name.value))
-      )
-        throw new ConflictError(`An agent named "${name}" already exists.`);
-      const local = this.discovered.find((plugin) => plugin.folder === this.localDirectory);
-      if (!local || local.dto.errors.length)
-        throw new ConflictError("The local agents plugin is unavailable.");
-      const manifest = this.manifestSchema.parse(
-        JSON.parse(await readFile(this.manifestPath(this.localDirectory), "utf8")),
-      );
-      const folder = path.join(this.localDirectory, name.value);
-      if (await lstat(folder).catch(() => null))
-        throw new ConflictError(`Agent folder "${name}" already exists.`);
-      await mkdir(folder); // Exclusive ownership: never remove a pre-existing folder on rollback.
-      try {
-        await writeFile(path.join(folder, "agent.ts"), primarySource, { flag: "wx" });
-        const agent = {
-          id: name.value,
-          name: name.value,
-          directory: name.value,
-          entry: "agent.ts",
-        };
-        const updated: PluginManifest = { ...manifest, agents: [...manifest.agents, agent] };
-        const registration = { plugin: updated, agent, directory: await realpath(folder) };
-        const result = {
-          ...(await this.store(registration).find(name)),
-          ...this.metadata(registration),
-        };
-        await this.writeManifest(this.localDirectory, updated);
-        local.dto = { ...local.dto, agents: updated.agents };
-        local.registrations.push(registration);
-        this.registrations.set(name.value, registration);
-        return result;
-      } catch (error) {
-        await rm(folder, { recursive: true, force: true });
-        throw error;
-      }
-    });
-    this.writes = operation.catch(() => undefined);
-    return operation;
   }
 
   async createFile(name: AgentName, file: AgentFilePath, content: string): Promise<AgentFileDto> {
@@ -263,7 +202,7 @@ export class PluginCatalog implements AgentStore {
     let store = this.stores.get(registration);
     if (!store) {
       store = new LocalAgentStore(
-        this.localDirectory,
+        this.pluginsDirectory,
         {},
         { directory: registration.directory, entry: registration.agent.entry },
       );
@@ -301,49 +240,5 @@ export class PluginCatalog implements AgentStore {
   }
   private isMissing(error: unknown): boolean {
     return !!error && typeof error === "object" && "code" in error && error.code === "ENOENT";
-  }
-  private async migrateLocal(): Promise<void> {
-    await mkdir(this.localDirectory, { recursive: true });
-    const manifestFile = this.manifestPath(this.localDirectory);
-    let manifest: PluginManifest;
-    try {
-      manifest = this.manifestSchema.parse(JSON.parse(await readFile(manifestFile, "utf8")));
-    } catch (error) {
-      if (!this.isMissing(error)) return; // Malformed local plugins are reported like external ones.
-      manifest = {
-        id: "local-agents",
-        name: "Local Agents",
-        version: "1.0.0",
-        apiVersion: 1,
-        agents: [],
-      };
-    }
-    const agents = [...manifest.agents];
-    for (const entry of await readdir(this.localDirectory, { withFileTypes: true })) {
-      if (
-        !entry.isDirectory() ||
-        !AgentName.isValid(entry.name) ||
-        agents.some((agent) => agent.id === entry.name)
-      )
-        continue;
-      if (
-        !(
-          await lstat(path.join(this.localDirectory, entry.name, "agent.ts")).catch(() => null)
-        )?.isFile()
-      )
-        continue;
-      agents.push({ id: entry.name, name: entry.name, directory: entry.name, entry: "agent.ts" });
-    }
-    if (agents.length !== manifest.agents.length || !(await lstat(manifestFile).catch(() => null)))
-      await this.writeManifest(this.localDirectory, { ...manifest, agents });
-  }
-  private async writeManifest(folder: string, manifest: PluginManifest): Promise<void> {
-    const temporary = path.join(folder, `.kushex-plugin-${randomUUID()}.tmp`);
-    try {
-      await writeFile(temporary, `${JSON.stringify(manifest, null, 2)}\n`, { flag: "wx" });
-      await rename(temporary, this.manifestPath(folder));
-    } finally {
-      await rm(temporary, { force: true });
-    }
   }
 }

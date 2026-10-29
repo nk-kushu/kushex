@@ -9,7 +9,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { KUSHIBOT_ENTRY_ENV, type RunnerCommand, type RunnerReport } from "./RunnerMessages.js";
 
-/** What an agent's `chat` export receives; documented in agents/README.md. */
+/** What an agent's `chat` export receives; documented in plugins/README.md. */
 type ChatRequest = Readonly<{
   message: string;
   files: readonly string[];
@@ -73,7 +73,7 @@ async function run(command: Extract<RunnerCommand, { type: "start" }>): Promise<
     const agent = (await import(pathToFileURL(command.entry).href)) as { chat?: unknown };
     if (typeof agent.chat !== "function")
       throw new Error(
-        `${path.basename(path.dirname(command.entry))}/${path.basename(command.entry)} does not export a \`chat\` function, so it cannot run from the chat. See agents/README.md.`,
+        `${path.basename(path.dirname(command.entry))}/${path.basename(command.entry)} does not export a \`chat\` function, so it cannot run from the chat. See plugins/README.md.`,
       );
     await report({ type: "loaded" });
     await call;

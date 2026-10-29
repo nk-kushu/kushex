@@ -1,3 +1,4 @@
+import { LocalWorkspaceProposalService, LocalWorkspacePublicationService } from "kushibot";
 import { PluginCatalog } from "../modules/plugins/PluginCatalog.js";
 import { PluginsController } from "../modules/plugins/PluginsController.js";
 import {
@@ -20,7 +21,6 @@ import {
 import { FileService, FilesController } from "../modules/files/public.js";
 import {
   AgentService,
-  AgentTemplate,
   AgentsController,
   CodeNotesController,
   CodeNotesService,
@@ -91,10 +91,9 @@ export class ApplicationFactory {
     const projects = new ProjectService(new PrismaProjectRepository(database.client), workspaces);
     const threads = new ChatThreads(database.client, projects, this.logger);
     const files = new FileService(workspaces, filesystem);
-    const catalog = new PluginCatalog(this.config.agentsDirectory, this.config.pluginsDirectory);
+    const catalog = new PluginCatalog(this.config.pluginsDirectory);
     const agents = new AgentService(
       catalog,
-      new AgentTemplate(),
       new KushibotTypesReader(this.config.kushibotDirectory),
     );
     // kushibot's debug-event tables, in their own schema next to Prisma's `kushex`.
@@ -109,13 +108,24 @@ export class ApplicationFactory {
       new PrismaDebugStreamRepository(database.client),
       this.logger,
     );
+    const proposals = new LocalWorkspaceProposalService(
+      kushibotDatabase,
+      undefined,
+      this.config.artifactsDirectory,
+    );
+    const publication = new LocalWorkspacePublicationService(
+      kushibotDatabase,
+      proposals,
+      undefined,
+      undefined,
+      this.config.artifactsDirectory,
+    );
     const codingProposals = new CodingProposals(
       threads,
       workspaces,
       workspacePaths,
-      kushibotDatabase,
-      this.config.kushibotDirectory,
-      this.config.artifactsDirectory,
+      proposals,
+      publication,
     );
     const runs = new AgentRunService(
       workspaces,

@@ -17,12 +17,7 @@ import { HttpServer } from "../../transport/http/HttpServer.js";
 import { LocalOperatorActorResolver } from "../../transport/http/LocalOperatorActorResolver.js";
 import { LocalRequestGuard } from "../../transport/http/LocalRequestGuard.js";
 import { RequestContextFactory } from "../../transport/http/RequestContextFactory.js";
-import {
-  AgentService,
-  AgentTemplate,
-  KushibotTypesReader,
-  LocalAgentStore,
-} from "../agents/public.js";
+import { AgentService, KushibotTypesReader, LocalAgentStore } from "../agents/public.js";
 import { ProjectService } from "../projects/public.js";
 import {
   LocalWorkspaceFileSystem,
@@ -214,11 +209,7 @@ describe.skipIf(!hasKushibot)("debug events from a running agent", () => {
     service = new AgentRunService(
       workspaces,
       paths,
-      new AgentService(
-        new LocalAgentStore(agentsDirectory),
-        new AgentTemplate(),
-        new KushibotTypesReader(null),
-      ),
+      new AgentService(new LocalAgentStore(agentsDirectory), new KushibotTypesReader(null)),
       new ChildProcessAgentLauncher(kushibotDirectory, logger),
       debugEvents,
     );

@@ -18,7 +18,7 @@ import { HttpServer } from "../../transport/http/HttpServer.js";
 import { LocalOperatorActorResolver } from "../../transport/http/LocalOperatorActorResolver.js";
 import { LocalRequestGuard } from "../../transport/http/LocalRequestGuard.js";
 import { RequestContextFactory } from "../../transport/http/RequestContextFactory.js";
-import { AgentService, AgentTemplate, KushibotTypesReader } from "../agents/public.js";
+import { AgentService, KushibotTypesReader } from "../agents/public.js";
 import { ProjectService } from "../projects/public.js";
 import {
   LocalWorkspaceFileSystem,
@@ -72,8 +72,8 @@ beforeEach(async () => {
   await mkdir(echo, { recursive: true });
   await writeFile(path.join(echo, "agent.ts"), ECHO_AGENT);
   await writeFile(path.join(echo, "shout.ts"), SHOUT);
-  await mkdir(path.join(agentsDirectory, "silent"));
-  await writeFile(path.join(agentsDirectory, "silent/agent.ts"), "export default {};\n");
+  await mkdir(path.join(external, "sources/silent"));
+  await writeFile(path.join(external, "sources/silent/agent.ts"), "export default {};\n");
   await writeFile(
     path.join(external, "kushex-plugin.json"),
     JSON.stringify({
@@ -81,10 +81,13 @@ beforeEach(async () => {
       name: "Development Agents",
       version: "1.0.0",
       apiVersion: 1,
-      agents: [{ id: "echo", name: "Echo", directory: "sources/echo-source", entry: "agent.ts" }],
+      agents: [
+        { id: "echo", name: "Echo", directory: "sources/echo-source", entry: "agent.ts" },
+        { id: "silent", name: "Silent", directory: "sources/silent", entry: "agent.ts" },
+      ],
     }),
   );
-  const catalog = new PluginCatalog(agentsDirectory, path.join(agentsDirectory, "plugins"));
+  const catalog = new PluginCatalog(path.join(agentsDirectory, "plugins"));
   await catalog.start();
   const repository = new InMemoryProjectRepository();
   const paths = new WorkspacePathResolver(fixture.roots);
@@ -94,7 +97,7 @@ beforeEach(async () => {
   service = new AgentRunService(
     workspaces,
     paths,
-    new AgentService(catalog, new AgentTemplate(), new KushibotTypesReader(null)),
+    new AgentService(catalog, new KushibotTypesReader(null)),
     new ChildProcessAgentLauncher(null, logger),
   );
   project = await new ProjectService(repository, workspaces).create(

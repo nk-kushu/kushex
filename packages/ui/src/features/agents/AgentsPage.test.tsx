@@ -7,25 +7,12 @@ import { parseNotes, serializeNotes } from "./notes/codeNotes";
 
 const contentOf = (file: AgentFileDto | undefined) => (file?.kind === "text" ? file.content : null);
 
-it("creates a named agent and opens its primary file in the editor", async () => {
-  const api = mockKushexApi([], []);
-  const user = userEvent.setup();
+it("directs users to plugins when no agents are installed", async () => {
+  mockKushexApi([], []);
   render(<KushexPanel initialPath="/agents" />);
   expect(await screen.findByText(/No agents yet/)).toBeInTheDocument();
-  await user.click(screen.getByRole("button", { name: "New agent" }));
-  await user.type(screen.getByLabelText("Agent name"), "Bad Name");
-  await user.click(screen.getByRole("button", { name: "Create agent" }));
-  expect(await screen.findByText(/Use lowercase letters/)).toBeInTheDocument();
-  await user.clear(screen.getByLabelText("Agent name"));
-  await user.type(screen.getByLabelText("Agent name"), "planner");
-  expect(screen.getByRole("dialog")).toHaveTextContent("Saved as agents/planner/agent.ts");
-  await user.click(screen.getByRole("button", { name: "Create agent" }));
-  await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
-  expect(await screen.findByLabelText("agent.ts in planner")).toHaveValue(
-    'export default { name: "planner" };\n',
-  );
-  expect(screen.getByRole("button", { name: "Agent planner, switch agent" })).toBeVisible();
-  expect(api.agents.has("planner")).toBe(true);
+  expect(screen.getByRole("link", { name: "Browse plugins" })).toHaveAttribute("href", "/plugins");
+  expect(screen.queryByRole("button", { name: /New agent|Create agent/ })).not.toBeInTheDocument();
 });
 
 it("edits every file in the agent folder and adds new ones", async () => {

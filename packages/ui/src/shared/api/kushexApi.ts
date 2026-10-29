@@ -20,7 +20,6 @@ import type {
   AgentFileDto,
   AgentSummaryDto,
   CreateAgentFileRequest,
-  CreateAgentRequest,
   CreateProjectRequest,
   LibraryTypesDto,
   DirectoryPageDto,
@@ -158,11 +157,6 @@ export const kushexApi = createApi({
         source.close();
       },
     }),
-    createAgent: build.mutation<AgentDto, CreateAgentRequest>({
-      query: (body) => ({ url: "/agents", method: "POST", body }),
-      invalidatesTags: ["Agents"],
-    }),
-    // The editor keeps saved revisions itself, so file mutations do not refetch the agent.
     createAgentFile: build.mutation<AgentFileDto, CreateAgentFileRequest & { name: string }>({
       query: ({ name, ...body }) => ({
         url: `/agents/${encodeURIComponent(name)}/files`,
@@ -339,7 +333,6 @@ export const {
   useAgentsQuery,
   useAgentQuery,
   useAgentFilesQuery,
-  useCreateAgentMutation,
   useCreateAgentFileMutation,
   useUpdateAgentFileMutation,
   useAgentNotesQuery,

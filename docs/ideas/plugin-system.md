@@ -1,7 +1,7 @@
 # Idea: install agents through plugins
 
 **Status:** implemented. The first version discovers local agent plugins at startup.
-See [the agent guide](../../agents/README.md#local-plugins) for installation and runtime details.
+See [the agent guide](../../plugins/README.md#local-plugins) for installation and runtime details.
 
 ## 1. What the first version does
 
@@ -127,20 +127,19 @@ mark the conflicting plugins unavailable rather than making discovery order deci
 **Result:** adding a local package makes its agents discoverable without editing
 Kushex application code.
 
-### Step 3 — Register the current `agents/` folder as a local plugin
+### Step 3 — Package the coding agent as an independent plugin
 
-Add a manifest to the existing `agents/` folder and register that folder as the
-built-in local plugin source alongside the configured plugins directory. List the
-current agents explicitly and preserve their IDs and source locations.
+The coding plugin lives in `plugins/coding/`, with its own `package.json` and
+`kushex-plugin.json`. Its contribution uses `directory: "."`, `entry: "agent.ts"`,
+and the unchanged agent ID `coding`. The default plugins directory is `plugins/`;
+all packages there use the same discovery and validation rules.
 
-This avoids moving the coding agent and its supporting files. Existing agents
-created through the panel must also be included during migration. Creating a new
-agent through the panel adds it to this local plugin and updates its manifest;
-if either operation fails, roll back the creation so no partial agent remains.
-External plugins gain agents by editing their manifests and restarting Kushex.
+There is no special Local Agents plugin, implicit migration of agent folders, or
+panel agent creation. Add agents by explicitly editing package manifests and
+restarting the server. Editing files within an installed agent remains supported.
 
-**Result:** existing agents become plugin contributions and use the same catalog
-as newly installed agents.
+**Result:** the coding agent is a normal plugin package with stable source paths
+and saved references.
 
 ### Step 4 — Make the editor and runner resolve agents through the catalog
 
@@ -195,7 +194,8 @@ agents. Check that:
 - All registered agents appear in the chat selector and Agents activity.
 - `/agents/coding` and existing saved references continue to work.
 - An external agent's files can be opened, edited, saved, run, and debugged.
-- Existing agent creation updates the local plugin manifest correctly.
+- Bare agent folders are not registered or migrated; manifests are never rewritten.
+- The panel and API do not offer agent creation.
 - Invalid manifests, duplicate IDs, and escaping paths produce clear errors.
 - Removing a plugin makes its agents unavailable without deleting chat history.
 - The navigation and agent workflow work in standalone and embedded panels.

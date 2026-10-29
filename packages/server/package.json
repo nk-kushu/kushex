@@ -34,7 +34,8 @@
     "zod": "^4.6.0",
     "@kushex/contracts": "workspace:*",
     "tsx": "^4.23.15",
-    "pg": "^8.23.0"
+    "pg": "^8.23.0",
+    "kushibot": "file:../../../kushibot"
   },
   "devDependencies": {
     "@types/node": "^26.6.5",

@@ -34,7 +34,7 @@ export function createOpenAiCodingAgent(
   return createCodingAgent({ ...settings, profile, gateway });
 }
 
-/** What the Kushex chat passes to `chat`; see agents/README.md. */
+/** What the Kushex chat passes to `chat`; see plugins/README.md. */
 export interface ChatRequest {
   readonly message: string;
   readonly artifacts?: IArtifactWriter;

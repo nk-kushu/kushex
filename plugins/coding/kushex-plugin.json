@@ -1,6 +1,6 @@
 {
-  "id": "local-agents",
-  "name": "Local Agents",
+  "id": "coding",
+  "name": "Coding Agent",
   "version": "1.0.0",
   "apiVersion": 1,
   "agents": [
@@ -8,7 +8,7 @@
       "id": "coding",
       "name": "Coding",
       "description": "Implement and debug code changes.",
-      "directory": "coding",
+      "directory": ".",
       "entry": "agent.ts"
     }
   ]

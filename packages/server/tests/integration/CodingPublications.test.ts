@@ -1,3 +1,4 @@
+import { LocalWorkspaceProposalService, LocalWorkspacePublicationService } from "kushibot";
 import { mkdtemp, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -21,7 +22,6 @@ import {
 import { ProjectService, PrismaProjectRepository } from "../../src/modules/projects/public.js";
 import {
   AgentService,
-  AgentTemplate,
   LocalAgentStore,
   KushibotTypesReader,
 } from "../../src/modules/agents/public.js";
@@ -138,13 +138,23 @@ let proposals: CodingProposals;
 let runs: AgentRunService;
 
 async function startServer() {
+  const libraryProposals = new LocalWorkspaceProposalService(
+    publicationDatabase,
+    undefined,
+    path.join(directory, "artifacts"),
+  );
   proposals = new CodingProposals(
     threads,
     workspaces,
     paths,
-    publicationDatabase,
-    kushibotDirectory,
-    path.join(directory, "artifacts"),
+    libraryProposals,
+    new LocalWorkspacePublicationService(
+      publicationDatabase,
+      libraryProposals,
+      undefined,
+      undefined,
+      path.join(directory, "artifacts"),
+    ),
   );
   runs = new AgentRunService(workspaces, paths, agents, launcher, null, {}, threads, proposals);
   server = new HttpServer(
@@ -207,11 +217,7 @@ beforeEach(async () => {
     path.join(agentDirectory, "coding/agent.ts"),
     "export async function chat() {}\n",
   );
-  agents = new AgentService(
-    new LocalAgentStore(agentDirectory),
-    new AgentTemplate(),
-    new KushibotTypesReader(null),
-  );
+  agents = new AgentService(new LocalAgentStore(agentDirectory), new KushibotTypesReader(null));
   launcher = new FixtureCodingLauncher(
     (await import(kushibotEntry(kushibotDirectory))) as Library,
     path.join(directory, "artifacts"),

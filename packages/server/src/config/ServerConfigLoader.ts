@@ -24,11 +24,6 @@ export class ServerConfigLoader {
           ),
         { error: "must not contain the filesystem root or an ignored directory name" },
       ),
-    // The kushex repository root from both src/config and dist/config.
-    KUSHEX_AGENTS_DIR: z
-      .string()
-      .default(fileURLToPath(new URL("../../../../agents", import.meta.url)))
-      .refine((value) => path.isAbsolute(value), { error: "must be an absolute directory path" }),
     KUSHEX_PLUGINS_DIR: z
       .string()
       .default(fileURLToPath(new URL("../../../../plugins", import.meta.url)))
@@ -105,7 +100,6 @@ export class ServerConfigLoader {
         connectionTimeoutMs: values.DATABASE_CONNECT_TIMEOUT_MS,
       },
       workspacesRoots: values.KUSHEX_WORKSPACES_ROOT,
-      agentsDirectory: values.KUSHEX_AGENTS_DIR,
       pluginsDirectory: values.KUSHEX_PLUGINS_DIR,
       kushibotDirectory: values.KUSHEX_KUSHIBOT_DIR ?? null,
       ...(values.KUSHEX_ARTIFACTS_DIR ? { artifactsDirectory: values.KUSHEX_ARTIFACTS_DIR } : {}),

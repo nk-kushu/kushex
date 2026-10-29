@@ -19,6 +19,18 @@ pnpm build            # @kushex/ui (ESM + style.css + .d.ts), @kushex/embed (ESM
 
 ## Docker
 
+The backend imports Kushibot as a normal package dependency (`file:../kushibot`
+from the repository root). Build the sibling library before installing dependencies
+or building Docker images:
+
+```sh
+npm --prefix ../kushibot run build
+```
+
+Docker receives that checkout through the named `kushibot` build context and
+packages its `dist/` output. Publication services use this installed package;
+`KUSHEX_KUSHIBOT_DIR` still selects the agent runner and editor's library checkout.
+
 Start the frontend, compiled backend, and PostgreSQL. A one-shot `migrate` service
 applies database migrations first; the backend starts only after it succeeds:
 
@@ -37,17 +49,19 @@ See [projects and workspaces](docs/backend/05-projects-and-workspaces.md).
 
 ### Agents
 
-The **Agents** activity creates and edits agents as code in a Monaco editor. Each
-agent is a folder in [`agents/`](agents/README.md) whose primary file,
-`<name>/agent.ts`, default-exports a kushibot-based agent; every text file in the
-folder can be edited, and new files added, from the panel. The directory is
-mounted read-write into the backend as `/agents` (`KUSHEX_AGENTS_DIR`). To
+The **Plugins** activity lists installed agent packages. Each plugin in
+[`plugins/`](plugins/README.md) has its own `kushex-plugin.json`; the coding plugin
+is [`plugins/coding`](plugins/coding/README.md). The **Agents** activity edits their
+contributed source files in Monaco. Agent creation happens by editing a package's
+manifest and restarting the server. The packages directory is mounted read-write
+into the backend as `/plugins` (`KUSHEX_PLUGINS_DIR`, default on the host:
+`kushex/plugins`). To
 type-check `import ... from "kushibot"` in the editor, set `KUSHEX_KUSHIBOT_DIR` to
 a built kushibot checkout visible to the backend, for example in
 `docker/compose.local.yml`; without it the editor works untyped.
 
 The chat panel runs an agent on the open project, and **Debug** runs it under a
-breakpoint debugger in the agent editor; see [running and debugging](agents/README.md#running-and-debugging-from-the-chat).
+breakpoint debugger in the agent editor; see [running and debugging](plugins/README.md#running-and-debugging-from-the-chat).
 Completed coding changes appear in the chat with **Review changes**. The Monaco diff
 shows each original and proposed file; **Accept and apply** approves that exact proposal.
 Changed originals block publication. Pending outcomes can be checked without repeating

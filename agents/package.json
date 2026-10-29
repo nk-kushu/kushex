@@ -1,5 +1,0 @@
-{
-  "private": true,
-  "description": "Marks agent sources as ES modules when the panel runs them; not an agent itself.",
-  "type": "module"
-}

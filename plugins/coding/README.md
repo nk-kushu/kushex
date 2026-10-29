@@ -1,4 +1,9 @@
-# Coding agent
+# Coding agent plugin
+
+This independent package is registered by [`kushex-plugin.json`](kushex-plugin.json)
+as **Coding Agent**. It contributes agent `coding` from this directory (`agent.ts`).
+Kushex discovers it through `KUSHEX_PLUGINS_DIR`, which defaults to the parent
+`plugins/` directory. There is no Local Agents wrapper or automatic registration.
 
 `agent.ts` exports **`createCodingAgent(options)`** as its default export. It
 returns Kushibot's `Agent<TaskInput, EditingResult>`, configured for coding.
@@ -16,7 +21,7 @@ Use Node.js 22.18+ and build the sibling `kushibot` checkout first. From `kushex
 install the usual workspace dependencies. An application can use this composition:
 
 ```ts
-import { createCodexCodingAgent } from "./agents/coding/factories/createCodexCodingAgent";
+import { createCodexCodingAgent } from "./plugins/coding/factories/createCodexCodingAgent";
 
 const agent = createCodexCodingAgent({
   workspace: "/absolute/path/to/project",
@@ -96,7 +101,7 @@ When running source with the workspace's tsx loader, use this agent's
 `tsconfig.json`; it resolves the sibling Kushibot package. For example, from `kushex`:
 
 ```sh
-TSX_TSCONFIG_PATH=agents/coding/tsconfig.json \
+TSX_TSCONFIG_PATH=plugins/coding/tsconfig.json \
   node --import ./packages/server/node_modules/tsx/dist/loader.mjs ./your-runner.ts
 ```
 

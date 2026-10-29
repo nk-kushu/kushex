@@ -2,13 +2,11 @@ import type { AgentDto, AgentFileDto, AgentSummaryDto, LibraryTypesDto } from "@
 import { AgentFilePath } from "../domain/AgentFilePath.js";
 import { AgentName } from "../domain/AgentName.js";
 import type { AgentEntry, AgentStore } from "./AgentStore.js";
-import type { AgentTemplate } from "./AgentTemplate.js";
 import type { LibraryTypesSource } from "./LibraryTypesSource.js";
 
 export class AgentService {
   constructor(
     private readonly agents: AgentStore,
-    private readonly template: AgentTemplate,
     private readonly libraryTypes: LibraryTypesSource,
   ) {}
 
@@ -22,12 +20,6 @@ export class AgentService {
 
   entry(name: string): Promise<AgentEntry> {
     return this.agents.entry(new AgentName(name));
-  }
-
-  /** New agents start from a kushibot template that the user then edits. */
-  create(name: string): Promise<AgentDto> {
-    const agentName = new AgentName(name);
-    return this.agents.create(agentName, this.template.render(agentName));
   }
 
   /** New files start empty. */

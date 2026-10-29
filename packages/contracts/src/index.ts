@@ -85,8 +85,6 @@ export type AgentDto = Readonly<{
   files: readonly AgentFileDto[];
 }> &
   AgentPluginMetadata;
-/** Lowercase letters, digits and dashes, starting with a letter (at most 63 characters). */
-export type CreateAgentRequest = Readonly<{ name: string }>;
 /** Folder-relative path; segments use letters, digits, `.`, `_` and `-` and cannot start with a dot. */
 export type CreateAgentFileRequest = Readonly<{ path: string }>;
 export type UpdateAgentFileRequest = Readonly<{
@@ -112,7 +110,7 @@ export type LibraryTypesDto = Readonly<{
 
 /**
  * Runs one chat message through an agent from `agents/`, against a project's workspace.
- * The agent's primary file must export `chat` (see agents/README.md).
+ * The agent's primary file must export `chat` (see plugins/README.md).
  */
 export type StartAgentRunRequest = Readonly<{
   threadId?: string;

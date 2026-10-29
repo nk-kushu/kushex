@@ -16,8 +16,6 @@ export interface AgentStore {
   /** The agent with every file in its folder. */
   find(name: AgentName): Promise<AgentDto>;
   entry(name: AgentName): Promise<AgentEntry>;
-  /** Creates the folder and its primary file; fails with a conflict when the agent exists. */
-  create(name: AgentName, primarySource: string): Promise<AgentDto>;
   /** Adds a file to an existing agent; fails with a conflict when the path is taken. */
   createFile(name: AgentName, path: AgentFilePath, content: string): Promise<AgentFileDto>;
   /** Fails with a conflict when the stored revision is not `baseRevision`. */

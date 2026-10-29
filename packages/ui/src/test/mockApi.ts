@@ -124,21 +124,6 @@ export function mockKushexApi(
         files: [{ path: "index.d.ts", content: "export declare const ok: true;" }],
       });
     if (route === "/plugins") return respond({ entries: initialPlugins, nextOffset: null });
-    if (route === "/agents" && request.method === "POST") {
-      const { name } = (await request.json()) as { name: string };
-      if (agents.has(name))
-        return respond(
-          { code: "CONFLICT", message: `An agent named "${name}" already exists.` },
-          409,
-        );
-      const agent: AgentDto = {
-        ...exampleAgent,
-        name,
-        files: [textFile("agent.ts", `export default { name: "${name}" };\n`)],
-      };
-      agents.set(name, agent);
-      return respond(agent, 201);
-    }
     if (route === "/agents")
       return respond({
         entries: [...agents.values()].map(

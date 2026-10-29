@@ -16,8 +16,12 @@ COPY packages/embed/package.json packages/embed/package.json
 COPY packages/server/package.json packages/server/package.json
 COPY packages/contracts/package.json packages/contracts/package.json
 COPY packages/contracts/src packages/contracts/src
+# Normal server dependency, supplied from the sibling checkout as a named build context.
+# Build kushibot on the host first; pnpm packages its declared dist/ files into the image.
+COPY --from=kushibot package.json /kushibot/package.json
+COPY --from=kushibot dist /kushibot/dist
 RUN pnpm install --frozen-lockfile
-# Agent sources are mounted at /agents, so Node looks for dependencies at /node_modules.
+# Agent sources are mounted at /plugins, so Node looks for dependencies at /node_modules.
 RUN ln -s /app/node_modules /node_modules
 COPY . .
 

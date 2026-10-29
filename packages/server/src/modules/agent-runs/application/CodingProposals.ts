@@ -1,52 +1,25 @@
 import type { CodingProposalReviewDto, CodingPublicationResultDto } from "@kushex/contracts";
-import type { PostgresSqlDatabase } from "../../../infrastructure/database/PostgresSqlDatabase.js";
 import { NotFoundError } from "../../../errors/NotFoundError.js";
 import { ConflictError } from "../../../errors/ConflictError.js";
 import type { RequestContext } from "../../../shared/application/RequestContext.js";
 import type { ChatThreads } from "../../chat-threads/ChatThreads.js";
 import type { WorkspaceService, WorkspacePathResolver } from "../../workspaces/public.js";
-import { kushibotEntry } from "../infrastructure/kushibotEntry.js";
-
-type ProposalService = Readonly<{
-  create(input: unknown): Promise<unknown>;
-  review(input: unknown): Promise<CodingProposalReviewDto | null>;
-}>;
-type PublicationService = Readonly<{
-  apply(input: unknown, digest: string, principal: string): Promise<CodingPublicationResultDto>;
-  reconcile(input: unknown, digest: string, principal: string): Promise<CodingPublicationResultDto>;
-}>;
-type Services = Readonly<{ proposals: ProposalService; publication: PublicationService }>;
-type Kushibot = Readonly<{
-  LocalWorkspaceProposalService: new (
-    database: PostgresSqlDatabase,
-    statements?: undefined,
-    artifactsDirectory?: string,
-  ) => ProposalService;
-  LocalWorkspacePublicationService: new (
-    database: PostgresSqlDatabase,
-    proposals: ProposalService,
-    statements?: undefined,
-    receipts?: undefined,
-    artifactsDirectory?: string,
-  ) => PublicationService;
-}>;
+import type { LocalWorkspaceProposalService, LocalWorkspacePublicationService } from "kushibot";
 
 /** Resolves the authorized run and workspace before preparing a durable proposal. */
 export class CodingProposals {
-  private service: Promise<Services> | null = null;
   private readonly operations = new Map<string, Promise<unknown>>();
   constructor(
     private readonly threads: ChatThreads,
     private readonly workspaces: WorkspaceService,
     private readonly paths: WorkspacePathResolver,
-    private readonly database: PostgresSqlDatabase,
-    private readonly kushibotDirectory: string | null,
-    private readonly artifactsDirectory?: string,
+    private readonly proposals: Pick<LocalWorkspaceProposalService, "create" | "review">,
+    private readonly publication: Pick<LocalWorkspacePublicationService, "apply" | "reconcile">,
   ) {}
 
   async create(context: RequestContext, projectId: string, runId: string): Promise<unknown> {
     const input = await this.input(context, projectId, runId);
-    return this.serial(input.workspace, async () => (await this.load()).proposals.create(input));
+    return this.serial(input.workspace, async () => this.proposals.create(input));
   }
 
   async review(
@@ -56,7 +29,7 @@ export class CodingProposals {
   ): Promise<CodingProposalReviewDto> {
     const input = await this.input(context, projectId, runId);
     return this.serial(input.workspace, async () => {
-      const review = await (await this.load()).proposals.review(input);
+      const review = await this.proposals.review(input);
       if (review === null) throw new NotFoundError("Coding proposal not found.");
       return review;
     });
@@ -89,13 +62,12 @@ export class CodingProposals {
   ) {
     const input = await this.input(context, projectId, runId);
     return this.serial(input.workspace, async () => {
-      const services = await this.load();
-      const review = await services.proposals.review(input);
+      const review = await this.proposals.review(input);
       if (!review || review.digest !== digest)
         throw new ConflictError("The proposal no longer matches the reviewed changes.");
       return reconcileOnly
-        ? services.publication.reconcile(input, digest, context.actor.id)
-        : services.publication.apply(input, digest, context.actor.id);
+        ? this.publication.reconcile(input, digest, context.actor.id)
+        : this.publication.apply(input, digest, context.actor.id);
     });
   }
 
@@ -121,32 +93,5 @@ export class CodingProposals {
       scope: { scopeId: context.actor.id, projectId, workspaceId: workspace.id },
       ...evidence,
     };
-  }
-
-  private load(): Promise<Services> {
-    if (!this.kushibotDirectory) throw new ConflictError("Coding proposals require Kushibot.");
-    this.service ??= import(kushibotEntry(this.kushibotDirectory))
-      .then((module: Kushibot) => {
-        const proposals = new module.LocalWorkspaceProposalService(
-          this.database,
-          undefined,
-          this.artifactsDirectory,
-        );
-        return {
-          proposals,
-          publication: new module.LocalWorkspacePublicationService(
-            this.database,
-            proposals,
-            undefined,
-            undefined,
-            this.artifactsDirectory,
-          ),
-        };
-      })
-      .catch((error: unknown) => {
-        this.service = null;
-        throw error;
-      });
-    return this.service;
   }
 }

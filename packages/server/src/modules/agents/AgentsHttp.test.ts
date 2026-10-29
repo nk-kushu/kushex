@@ -7,13 +7,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { ErrorResponder } from "../../transport/http/ErrorResponder.js";
 import { HttpServer } from "../../transport/http/HttpServer.js";
 import { LocalRequestGuard } from "../../transport/http/LocalRequestGuard.js";
-import {
-  AgentService,
-  AgentTemplate,
-  AgentsController,
-  KushibotTypesReader,
-  LocalAgentStore,
-} from "./public.js";
+import { AgentService, AgentsController, KushibotTypesReader, LocalAgentStore } from "./public.js";
 
 type TextFile = Extract<AgentFileDto, { kind: "text" }>;
 
@@ -33,7 +27,6 @@ async function start(kushibotDirectory: string | null) {
       new AgentsController(
         new AgentService(
           new LocalAgentStore(agentsDirectory, { maxFileBytes: 4096, maxTotalBytes: 5000 }),
-          new AgentTemplate(),
           new KushibotTypesReader(kushibotDirectory),
         ),
       ),
@@ -46,7 +39,7 @@ async function start(kushibotDirectory: string | null) {
 
 beforeEach(async () => {
   root = await mkdtemp(path.join(tmpdir(), "kushex-agents-"));
-  // Missing on purpose: the first create makes it.
+  // Test sources are installed on disk; the server never creates agents.
   agentsDirectory = path.join(root, "agents");
   await start(null);
 });
@@ -55,8 +48,14 @@ afterEach(async () => {
   await rm(root, { recursive: true, force: true });
 });
 
-const create = (name: unknown) =>
-  fetch(`${base}/agents`, { method: "POST", headers, body: JSON.stringify({ name }) });
+const create = async (name: string) => {
+  await mkdir(path.join(agentsDirectory, name), { recursive: true });
+  await writeFile(
+    path.join(agentsDirectory, name, "agent.ts"),
+    "export const chat = () => 'hello';\n",
+  );
+  return fetch(`${base}/agents/${name}`);
+};
 const find = async (name: string) =>
   (await (await fetch(`${base}/agents/${name}`)).json()) as AgentDto;
 const createFile = (name: string, filePath: unknown) =>
@@ -71,21 +70,14 @@ const text = (agent: AgentDto, filePath: string) =>
   agent.files.find((file) => file.path === filePath) as TextFile;
 
 describe("agents HTTP API", () => {
-  it("creates an agent folder whose primary file exports the kushibot agent", async () => {
+  it("does not expose agent creation", async () => {
+    const response = await fetch(`${base}/agents`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ name: "reviewer" }),
+    });
+    expect(response.status).toBe(404);
     expect(await (await fetch(`${base}/agents`)).json()).toEqual({ entries: [], nextOffset: null });
-    const response = await create("reviewer");
-    expect(response.status).toBe(201);
-    const agent = (await response.json()) as AgentDto;
-    expect(agent).toMatchObject({ name: "reviewer", primaryFile: "agent.ts" });
-    expect(agent.files.map((file) => file.path)).toEqual(["agent.ts"]);
-    const primary = text(agent, "agent.ts");
-    expect(primary.content).toContain('from "kushibot"');
-    expect(primary.content).toContain("export default agent;");
-    expect(await readFile(path.join(agentsDirectory, "reviewer", "agent.ts"), "utf8")).toBe(
-      primary.content,
-    );
-    const list = (await (await fetch(`${base}/agents`)).json()) as { entries: unknown[] };
-    expect(list.entries).toEqual([{ name: "reviewer", updatedAt: agent.updatedAt }]);
   });
 
   it("returns every file in the folder and edits each one separately", async () => {
@@ -146,23 +138,21 @@ describe("agents HTTP API", () => {
         .status,
     ).toBe(413);
     // Past the per-agent content budget, further files are listed without content.
+    await writeFile(path.join(folder, "extra.md"), "x".repeat(1000));
     await writeFile(path.join(folder, "notes.md"), "y".repeat(4096));
     expect((await find("mixed")).files.find((file) => file.path === "notes.md")).toMatchObject({
       kind: "too-large",
     });
   });
 
-  it("rejects duplicates, missing agents and unsafe names or paths", async () => {
+  it("rejects missing agents and unsafe paths", async () => {
     await create("one");
-    expect((await create("one")).status).toBe(409);
     expect((await fetch(`${base}/agents/missing`)).status).toBe(404);
     expect((await createFile("missing", "a.md")).status).toBe(404);
     const revision = text(await find("one"), "agent.ts").revision;
     expect(
       (await save("one", { path: "nope.ts", content: "", baseRevision: revision })).status,
     ).toBe(404);
-    for (const name of ["../escape", "Upper", "1st", "a.b", "", "a".repeat(64), 7])
-      expect((await create(name)).status).toBe(400);
     for (const filePath of [
       "../x.ts",
       "a/../b.ts",
@@ -195,10 +185,7 @@ describe("agents HTTP API", () => {
     expect(await (await fetch(`${base}/agents`)).json()).toEqual({ entries: [], nextOffset: null });
     for (const name of ["empty", "plain", "linked-folder", "linked-file"])
       expect((await fetch(`${base}/agents/${name}`)).status).toBe(404);
-    // A folder without a primary file can become an agent; a plain file or a link cannot.
-    expect((await create("empty")).status).toBe(201);
-    expect((await create("plain")).status).toBe(409);
-    expect((await create("linked-folder")).status).toBe(409);
+    await create("empty");
 
     // Links inside an agent folder are neither listed nor written through.
     const folder = path.join(agentsDirectory, "empty");

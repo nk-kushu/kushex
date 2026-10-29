@@ -1,13 +1,8 @@
-import { mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
+import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { rename } from "node:fs/promises";
-import type * as FileSystem from "node:fs/promises";
-vi.mock("node:fs/promises", async (importOriginal) => {
-  const actual = await importOriginal<typeof FileSystem>();
-  return { ...actual, rename: vi.fn(actual.rename) };
-});
+import { afterEach, beforeEach, expect, it } from "vitest";
 import { PluginCatalog } from "./PluginCatalog.js";
 import { AgentName } from "../agents/domain/AgentName.js";
 import { AgentFilePath } from "../agents/domain/AgentFilePath.js";
@@ -22,12 +17,21 @@ beforeEach(async () => {
   root = await mkdtemp(path.join(tmpdir(), "kushex-plugins-"));
   local = path.join(root, "agents");
   plugins = path.join(root, "plugins");
-  catalog = new PluginCatalog(local, plugins);
+  catalog = new PluginCatalog(plugins);
   await mkdir(path.join(local, "coding"), { recursive: true });
-  await writeFile(path.join(local, "coding/agent.ts"), "export const chat = () => 'coding';");
+  await writeFile(path.join(local, "coding/agent.ts"), "export const chat = () => 'legacy';");
+  const coding = path.join(plugins, "coding");
+  await mkdir(coding, { recursive: true });
+  await writeFile(path.join(coding, "agent.ts"), "export const chat = () => 'coding';");
+  await save(coding, {
+    id: "coding",
+    name: "Coding Agent",
+    version: "1.0.0",
+    apiVersion: 1,
+    agents: [{ id: "coding", name: "Coding", directory: ".", entry: "agent.ts" }],
+  });
 });
 afterEach(async () => {
-  vi.restoreAllMocks();
   await rm(root, { recursive: true, force: true });
 });
 
@@ -65,7 +69,7 @@ async function save(folder: string, manifest: unknown) {
   await writeFile(path.join(folder, "kushex-plugin.json"), JSON.stringify(manifest));
 }
 
-it("migrates legacy agents and resolves external sources, custom entries and revision checked saves", async () => {
+it("resolves explicit plugin sources, custom entries and revision checked saves", async () => {
   const { folder } = await plugin("development");
   await catalog.start();
   expect(catalog.plugins()).toHaveLength(2);
@@ -94,39 +98,23 @@ it("migrates legacy agents and resolves external sources, custom entries and rev
   expect((await catalog.entry(name("coding"))).primaryFile).toContain("coding/agent.ts");
 });
 
-it("creates agents in the local plugin and keeps them registered after restart", async () => {
+it("does not register legacy folders or create a local plugin manifest", async () => {
   await catalog.start();
-  await Promise.all([
-    catalog.create(name("planner"), "planner"),
-    catalog.create(name("tester"), "tester"),
-  ]);
-  const manifest = JSON.parse(
-    await readFile(path.join(local, "kushex-plugin.json"), "utf8"),
-  ) as PluginManifest;
-  expect(manifest.agents.map((agent) => agent.id).sort()).toEqual(["coding", "planner", "tester"]);
-  const restarted = new PluginCatalog(local, plugins);
-  await restarted.start();
-  expect((await restarted.list()).map((agent) => agent.name)).toEqual([
-    "coding",
-    "planner",
-    "tester",
-  ]);
+  expect(catalog.plugins().map((plugin) => plugin.id)).toEqual(["coding"]);
+  await expect(readFile(path.join(local, "kushex-plugin.json"))).rejects.toMatchObject({
+    code: "ENOENT",
+  });
+  expect(await readFile(path.join(local, "coding/agent.ts"), "utf8")).toContain("legacy");
 });
 
-it("rolls back a new folder if its manifest cannot be read, leaving existing folders alone", async () => {
+it("does not rewrite manifests or automatically add unlisted agents", async () => {
+  const folder = path.join(plugins, "coding");
+  const before = await readFile(path.join(folder, "kushex-plugin.json"), "utf8");
+  await mkdir(path.join(folder, "unlisted"));
+  await writeFile(path.join(folder, "unlisted/agent.ts"), "export const chat = () => 'unlisted';");
   await catalog.start();
-  await writeFile(path.join(local, "kushex-plugin.json"), "invalid");
-  await expect(catalog.create(name("planner"), "planner")).rejects.toThrow();
-  expect(await readdir(local)).not.toContain("planner");
-});
-
-it("rolls back source creation when the atomic manifest replacement fails", async () => {
-  await catalog.start();
-  // Make the manifest valid to read but unable to be atomically replaced.
-  vi.mocked(rename).mockRejectedValueOnce(new Error("manifest write failed"));
-  await expect(catalog.create(name("planner"), "planner")).rejects.toThrow("manifest write failed");
-  expect(await readdir(local)).not.toContain("planner");
   expect((await catalog.list()).map((agent) => agent.name)).toEqual(["coding"]);
+  expect(await readFile(path.join(folder, "kushex-plugin.json"), "utf8")).toBe(before);
 });
 
 it("marks every conflicting plugin unavailable regardless of discovery order", async () => {
@@ -134,7 +122,7 @@ it("marks every conflicting plugin unavailable regardless of discovery order", a
   await plugin("second", ["echo", "other"]);
   await catalog.start();
   expect((await catalog.list()).map((agent) => agent.name)).toEqual(["coding"]);
-  for (const entry of catalog.plugins().filter((entry) => entry.id !== "local-agents"))
+  for (const entry of catalog.plugins().filter((entry) => entry.id !== "coding"))
     expect(entry.errors.join(" ")).toMatch(/Duplicate agent ID "echo"/);
 });
 
@@ -186,10 +174,38 @@ it("rejects removed agents after restart and restores the same IDs on reinstall"
   const external = await plugin("external");
   await catalog.start();
   await rm(external.folder, { recursive: true });
-  const restarted = new PluginCatalog(local, plugins);
+  const restarted = new PluginCatalog(plugins);
   await restarted.start();
   await expect(restarted.entry(name("echo"))).rejects.toThrow(/unavailable/);
   await plugin("external");
   await restarted.start();
   expect((await restarted.find(name("echo"))).plugin?.id).toBe("external");
+});
+
+it("discovers the shipped coding package with the stable coding agent ID", async () => {
+  const directory = fileURLToPath(new URL("../../../../../plugins", import.meta.url));
+  const shipped = new PluginCatalog(directory);
+  await shipped.start();
+  expect(shipped.plugins()).toContainEqual(
+    expect.objectContaining({ id: "coding", name: "Coding Agent", errors: [] }),
+  );
+  expect((await shipped.entry(name("coding"))).primaryFile).toBe(
+    await import("node:fs/promises").then((fs) =>
+      fs.realpath(path.join(directory, "coding/agent.ts")),
+    ),
+  );
+  expect((await shipped.find(name("coding"))).plugin).toEqual({
+    id: "coding",
+    name: "Coding Agent",
+  });
+});
+
+it("does not create a missing plugins directory", async () => {
+  const directory = path.join(root, "not-installed");
+  const missing = new PluginCatalog(directory);
+  await missing.start();
+  expect(missing.plugins()).toEqual([]);
+  await expect(readFile(path.join(directory, "kushex-plugin.json"))).rejects.toMatchObject({
+    code: "ENOENT",
+  });
 });

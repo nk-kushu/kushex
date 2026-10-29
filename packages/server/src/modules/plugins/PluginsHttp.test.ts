@@ -5,12 +5,7 @@ import { afterEach, expect, it } from "vitest";
 import { pino } from "pino";
 import { PluginCatalog } from "./PluginCatalog.js";
 import { PluginsController } from "./PluginsController.js";
-import {
-  AgentService,
-  AgentTemplate,
-  AgentsController,
-  KushibotTypesReader,
-} from "../agents/public.js";
+import { AgentService, AgentsController, KushibotTypesReader } from "../agents/public.js";
 import { HttpServer } from "../../transport/http/HttpServer.js";
 import { ErrorResponder } from "../../transport/http/ErrorResponder.js";
 import { LocalRequestGuard } from "../../transport/http/LocalRequestGuard.js";
@@ -36,7 +31,7 @@ it("serves plugin metadata and source APIs without exposing resolved server path
       agents: [{ id: "echo", name: "Echo", directory: "src", entry: "main.ts" }],
     }),
   );
-  const catalog = new PluginCatalog(path.join(root, "agents"), path.join(root, "plugins"));
+  const catalog = new PluginCatalog(path.join(root, "plugins"));
   await catalog.start();
   const logger = pino({ level: "silent" });
   server = new HttpServer(
@@ -45,14 +40,18 @@ it("serves plugin metadata and source APIs without exposing resolved server path
     new ErrorResponder(logger),
     [
       new PluginsController(catalog),
-      new AgentsController(
-        new AgentService(catalog, new AgentTemplate(), new KushibotTypesReader(null)),
-      ),
+      new AgentsController(new AgentService(catalog, new KushibotTypesReader(null))),
     ],
     new LocalRequestGuard([]),
   );
   await server.start();
   const base = `http://127.0.0.1:${server.port}`;
+  const creation = await fetch(`${base}/agents`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ name: "new-agent" }),
+  });
+  expect(creation.status).toBe(404);
   const plugins = await (await fetch(`${base}/plugins`)).text();
   expect(plugins).toContain("Example");
   expect(plugins).not.toContain(root);

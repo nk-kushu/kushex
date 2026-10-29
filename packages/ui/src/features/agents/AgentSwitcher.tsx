@@ -1,17 +1,14 @@
 import { Dropdown, Typography } from "antd";
-import { IconCheck, IconLayoutGrid, IconPlus, IconSelector } from "@tabler/icons-react";
-import { useState } from "react";
+import { IconCheck, IconLayoutGrid, IconSelector } from "@tabler/icons-react";
 import { useNavigate } from "react-router";
 import { useAgentsQuery } from "../../shared/api/kushexApi";
 import { paths } from "../workbench/navigation";
 import { AgentBadge } from "./AgentsHome";
-import { CreateAgentDialog } from "./CreateAgentDialog";
 
-/** The explorer's title: the open agent, and a menu to switch to or create another. */
+/** The explorer's title: the open agent, and a menu to switch to another. */
 export function AgentSwitcher({ name }: Readonly<{ name: string }>) {
   const navigate = useNavigate();
   const agents = useAgentsQuery();
-  const [creating, setCreating] = useState(false);
   const open = (agent: string) => void navigate(paths.agents(agent));
 
   return (
@@ -20,8 +17,7 @@ export function AgentSwitcher({ name }: Readonly<{ name: string }>) {
         trigger={["click"]}
         menu={{
           onClick: ({ key }) => {
-            if (key === "new") setCreating(true);
-            else if (key === "all") void navigate(paths.agents());
+            if (key === "all") void navigate(paths.agents());
             else open(key.replace(/^agent:/, ""));
           },
           items: [
@@ -35,7 +31,6 @@ export function AgentSwitcher({ name }: Readonly<{ name: string }>) {
               })),
             },
             { type: "divider" },
-            { key: "new", label: "New agent…", icon: <IconPlus size={14} /> },
             { key: "all", label: "All agents", icon: <IconLayoutGrid size={14} /> },
           ],
         }}
@@ -63,15 +58,6 @@ export function AgentSwitcher({ name }: Readonly<{ name: string }>) {
           </span>
         </button>
       </Dropdown>
-      {creating && (
-        <CreateAgentDialog
-          onClose={() => setCreating(false)}
-          onCreated={(agent) => {
-            setCreating(false);
-            open(agent);
-          }}
-        />
-      )}
     </>
   );
 }

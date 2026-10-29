@@ -5,9 +5,8 @@ export type ServerConfig = Readonly<{
   database: Readonly<{ url: string; maxConnections: number; connectionTimeoutMs: number }>;
   /** Absolute directories whose immediate subdirectories can become project workspaces. */
   workspacesRoots: readonly string[];
-  /** Absolute directory holding one folder per agent (`<name>/agent.ts`). */
-  agentsDirectory: string;
-  pluginsDirectory?: string;
+  /** Absolute directory containing installed plugin packages. */
+  pluginsDirectory: string;
   /** Absolute kushibot package directory whose declarations type-check agents, if any. */
   kushibotDirectory: string | null;
   /** Shared local coding/publication artifact directory, outside editable workspaces. */

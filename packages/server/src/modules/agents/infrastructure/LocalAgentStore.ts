@@ -96,17 +96,6 @@ export class LocalAgentStore implements AgentStore {
     };
   }
 
-  create(name: AgentName, primarySource: string): Promise<AgentDto> {
-    return this.serialized(async () => {
-      if (await this.primaryInfo(name))
-        throw new ConflictError(`An agent named "${name}" already exists.`);
-      await mkdir(this.directory, { recursive: true });
-      await this.ensureFolder(this.folderPath(name), `agents/${name}`);
-      await this.write(name, this.primaryFile, primarySource);
-      return this.find(name);
-    });
-  }
-
   createFile(name: AgentName, file: AgentFilePath, content: string): Promise<AgentFileDto> {
     return this.serialized(async () => {
       await this.requireAgent(name);

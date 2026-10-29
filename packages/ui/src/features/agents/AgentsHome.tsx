@@ -1,12 +1,13 @@
 import { Alert, Button, Input, Spin, Typography } from "antd";
-import { IconChevronRight, IconPlus, IconSearch } from "@tabler/icons-react";
+import { IconChevronRight, IconSearch } from "@tabler/icons-react";
 import { useState } from "react";
 import { errorMessage } from "../../shared/api/errorMessage";
 import { useAgentsQuery } from "../../shared/api/kushexApi";
 import { AppIcon } from "../../shared/components/AppIcon";
 import { AgentsIcon } from "../../shared/lib/icons";
 import { borderAll } from "../../shared/lib/styles";
-import { CreateAgentDialog } from "./CreateAgentDialog";
+import { Link } from "react-router";
+import { paths } from "../workbench/navigation";
 
 const relative = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
 const UNITS: readonly (readonly [Intl.RelativeTimeFormatUnit, number])[] = [
@@ -36,10 +37,9 @@ export function AgentBadge({ size = "md" }: Readonly<{ size?: "sm" | "md" | "lg"
   );
 }
 
-/** The Agents page without an agent open: every agent as a card, and creating one. */
+/** The Agents page without an agent open: every installed agent as a card. */
 export function AgentsHome({ onOpen }: Readonly<{ onOpen: (name: string) => void }>) {
   const agents = useAgentsQuery(undefined, { refetchOnMountOrArgChange: true });
-  const [creating, setCreating] = useState(false);
   const [query, setQuery] = useState("");
   const entries = agents.data?.entries ?? [];
   const shown = entries.filter((agent) =>
@@ -60,9 +60,6 @@ export function AgentsHome({ onOpen }: Readonly<{ onOpen: (name: string) => void
               Agents are code: each one is a folder of files you edit, run and debug here.
             </Typography.Text>
           </div>
-          <Button type="primary" icon={<IconPlus size={16} />} onClick={() => setCreating(true)}>
-            New agent
-          </Button>
         </header>
 
         {agents.isLoading && <Spin className="kx:self-center kx:p-8" aria-label="Loading agents" />}
@@ -84,11 +81,9 @@ export function AgentsHome({ onOpen }: Readonly<{ onOpen: (name: string) => void
               No agents yet
             </Typography.Title>
             <Typography.Text type="secondary" className="kx:max-w-sm">
-              Create one to start from a kushibot template, then shape its prompts and tools.
+              Install a plugin to make its agents available here.
             </Typography.Text>
-            <Button type="primary" onClick={() => setCreating(true)}>
-              Create your first agent
-            </Button>
+            <Link to={paths.plugins()}>Browse plugins</Link>
           </div>
         )}
 
@@ -136,15 +131,6 @@ export function AgentsHome({ onOpen }: Readonly<{ onOpen: (name: string) => void
           </section>
         )}
       </div>
-      {creating && (
-        <CreateAgentDialog
-          onClose={() => setCreating(false)}
-          onCreated={(name) => {
-            setCreating(false);
-            onOpen(name);
-          }}
-        />
-      )}
     </div>
   );
 }

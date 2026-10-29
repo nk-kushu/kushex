@@ -1,5 +1,4 @@
 export { AgentService } from "./application/AgentService.js";
-export { AgentTemplate } from "./application/AgentTemplate.js";
 export type { AgentEntry, AgentStore } from "./application/AgentStore.js";
 export type { LibraryTypesSource } from "./application/LibraryTypesSource.js";
 export { LocalAgentStore } from "./infrastructure/LocalAgentStore.js";

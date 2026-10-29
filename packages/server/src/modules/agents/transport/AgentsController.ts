@@ -1,8 +1,4 @@
-import type {
-  CreateAgentFileRequest,
-  CreateAgentRequest,
-  UpdateAgentFileRequest,
-} from "@kushex/contracts";
+import type { CreateAgentFileRequest, UpdateAgentFileRequest } from "@kushex/contracts";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import type { HttpController } from "../../../transport/http/HttpController.js";
@@ -29,14 +25,6 @@ export class AgentsController implements HttpController {
       reply.header("Cache-Control", "no-store");
       return { entries: await this.agents.list(), nextOffset: null };
     });
-    routes.post<{ Body: CreateAgentRequest }>(
-      "/agents",
-      { schema: { body: z.object({ name }).strict() } },
-      async (request, reply) => {
-        reply.header("Cache-Control", "no-store").code(201);
-        return this.agents.create(request.body.name);
-      },
-    );
     routes.get<{ Params: { name: string } }>(
       "/agents/:name",
       { schema: { params } },
