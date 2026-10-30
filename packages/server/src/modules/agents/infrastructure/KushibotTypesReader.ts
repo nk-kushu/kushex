@@ -1,8 +1,9 @@
-import { readdir, readFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import path from "node:path";
 import type { LibraryTypesDto } from "@kushex/contracts";
 import { NotFoundError } from "../../../errors/NotFoundError.js";
 import type { LibraryTypesSource } from "../application/LibraryTypesSource.js";
+import { DeclarationDirectoryReader } from "./DeclarationDirectoryReader.js";
 
 /**
  * Reads the built `.d.ts` files of a kushibot checkout. Without a configured
@@ -12,36 +13,18 @@ export class KushibotTypesReader implements LibraryTypesSource {
   constructor(
     /** Absolute kushibot package directory (the one holding its package.json), or null. */
     private readonly packageRoot: string | null,
-    private readonly maxTotalBytes = 16 * 1024 * 1024,
+    private readonly directory = new DeclarationDirectoryReader(),
   ) {}
 
   async read(): Promise<LibraryTypesDto> {
     if (!this.packageRoot) return { packageName: "kushibot", version: null, files: [] };
     const manifest = await this.manifest(this.packageRoot);
     const declarationRoot = path.dirname(path.resolve(this.packageRoot, manifest.types));
-    let entries;
-    try {
-      entries = await readdir(declarationRoot, { recursive: true, withFileTypes: true });
-    } catch {
-      throw this.notBuilt();
-    }
-    const files: { path: string; content: string }[] = [];
-    let total = 0;
-    // Dirent.isFile() is false for symlinks, so links out of the package are skipped.
-    for (const entry of entries) {
-      if (!entry.isFile() || !entry.name.endsWith(".d.ts")) continue;
-      const absolute = path.join(entry.parentPath, entry.name);
-      const content = await readFile(absolute, "utf8");
-      total += Buffer.byteLength(content);
-      if (total > this.maxTotalBytes)
-        throw new Error("kushibot declarations exceed the size limit.");
-      files.push({
-        path: path.relative(declarationRoot, absolute).split(path.sep).join("/"),
-        content,
-      });
-    }
+    const files = await this.directory.read(declarationRoot).catch((failure: unknown) => {
+      if ((failure as NodeJS.ErrnoException).code === "ENOENT") throw this.notBuilt();
+      throw failure;
+    });
     if (!files.some((file) => file.path === path.basename(manifest.types))) throw this.notBuilt();
-    files.sort((a, b) => a.path.localeCompare(b.path));
     return { packageName: manifest.name, version: manifest.version, files };
   }
 

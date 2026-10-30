@@ -37,10 +37,18 @@ globalThis.ResizeObserver ??= class {
 // Monaco needs real layout and web workers; render its value as plain text instead,
 // or as a textarea when the editor accepts edits.
 vi.mock("@monaco-editor/react", () => ({
-  DiffEditor: ({ original, modified }: { original: string; modified: string }) =>
+  DiffEditor: ({
+    original,
+    modified,
+    options,
+  }: {
+    original: string;
+    modified: string;
+    options?: { fontSize?: number };
+  }) =>
     createElement(
       "div",
-      null,
+      { "data-testid": "diff-editor", "data-font-size": options?.fontSize },
       createElement("pre", { "aria-label": "Original" }, original),
       createElement("pre", { "aria-label": "Proposed" }, modified),
     ),
@@ -50,16 +58,21 @@ vi.mock("@monaco-editor/react", () => ({
     onChange,
   }: {
     value?: string;
-    options?: { ariaLabel?: string; readOnly?: boolean };
+    options?: { ariaLabel?: string; readOnly?: boolean; fontSize?: number };
     onChange?: (value: string) => void;
   }) =>
     options?.readOnly === false
       ? createElement("textarea", {
           "aria-label": options.ariaLabel,
+          "data-font-size": options.fontSize,
           value,
           onChange: (event: { target: { value: string } }) => onChange?.(event.target.value),
         })
-      : createElement("pre", { "aria-label": options?.ariaLabel }, value),
+      : createElement(
+          "pre",
+          { "aria-label": options?.ariaLabel, "data-font-size": options?.fontSize },
+          value,
+        ),
 }));
 
 beforeEach(() => {

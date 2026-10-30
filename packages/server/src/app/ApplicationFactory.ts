@@ -25,6 +25,7 @@ import {
   CodeNotesController,
   CodeNotesService,
   KushibotTypesReader,
+  NodeTypesReader,
   PrismaCodeNotesRepository,
 } from "../modules/agents/public.js";
 import {
@@ -53,6 +54,7 @@ import { Application } from "./Application.js";
 import { ReadinessProbe } from "./health/ReadinessProbe.js";
 import { ChatThreads } from "../modules/chat-threads/ChatThreads.js";
 import { ChatThreadsController } from "../modules/chat-threads/ChatThreadsController.js";
+import { NoteService, NotesController, PrismaNoteRepository } from "../modules/notes/public.js";
 
 /** Readiness must answer within the Compose probe timeout (3 s). */
 const READINESS_TIMEOUT_MS = 2000;
@@ -95,6 +97,7 @@ export class ApplicationFactory {
     const agents = new AgentService(
       catalog,
       new KushibotTypesReader(this.config.kushibotDirectory),
+      new NodeTypesReader(),
     );
     // kushibot's debug-event tables, in their own schema next to Prisma's `kushex`.
     const kushibotDatabase = new PostgresSqlDatabase({
@@ -150,6 +153,7 @@ export class ApplicationFactory {
         new LocationsController(workspaces, contexts),
         new ProjectsController(projects, contexts),
         new ChatThreadsController(threads, contexts),
+        new NotesController(new NoteService(new PrismaNoteRepository(database.client)), contexts),
         new FilesController(files, contexts),
         new AgentsController(agents),
         new PluginsController(catalog),

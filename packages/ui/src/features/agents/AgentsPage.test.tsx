@@ -128,6 +128,20 @@ it("lists every breakpoint of the agent by file, with its code, and removes them
   expect(within(section).getByText(/Click left of a line number/)).toBeInTheDocument();
 });
 
+it("shows empty folders in the tree and offers them for new files", async () => {
+  mockKushexApi([], [exampleAgent]);
+  const user = userEvent.setup();
+  render(<KushexPanel initialPath="/agents/reviewer" />);
+  const tree = await screen.findByRole("tree", { name: "Agent files" });
+  expect(within(tree).getByRole("treeitem", { name: "workspace" })).toBeInTheDocument();
+
+  await user.hover(within(tree).getByRole("treeitem", { name: "workspace" }));
+  await user.click(within(tree).getByRole("button", { name: "New file in workspace" }));
+  await user.type(await screen.findByLabelText("File name"), "scratch.ts");
+  expect(screen.getByText("agents/reviewer/")).toBeInTheDocument();
+  expect(screen.getByText("workspace/scratch.ts")).toBeInTheDocument();
+});
+
 it("filters the file tree, moves through it with the keyboard and closes open files", async () => {
   mockKushexApi([], [exampleAgent]);
   const user = userEvent.setup();
@@ -199,4 +213,26 @@ it("lists code notes, shows one next to its code and saves edits to the database
   expect(parseNotes(api.notes.get("reviewer")!.content)).toMatchObject([
     { id: "n1", file: "agent.ts", start: 2, body: "Renamed" },
   ]);
+});
+
+it("adds a general note that is not tied to any code", async () => {
+  const api = mockKushexApi([], [exampleAgent]);
+  const user = userEvent.setup();
+  render(<KushexPanel initialPath="/agents/reviewer" />);
+  await screen.findByRole("tree", { name: "Agent files" });
+
+  await user.click(screen.getByRole("tab", { name: /^Notes/ }));
+  await user.click(await screen.findByRole("button", { name: "New note" }));
+  const panel = screen.getByRole("complementary", { name: "General note" });
+  expect(within(panel).queryByLabelText("Code the note points at")).not.toBeInTheDocument();
+
+  await user.type(within(panel).getByLabelText("Note text"), "Try a smaller prompt");
+  await user.click(within(panel).getByRole("button", { name: "Add note" }));
+  const list = await screen.findByRole("region", { name: "General notes" });
+  expect(within(list).getByRole("button", { name: /Try a smaller prompt/ })).toBeInTheDocument();
+  expect(parseNotes(api.notes.get("reviewer")!.content)).toMatchObject([
+    { file: null, body: "Try a smaller prompt" },
+  ]);
+  // It marks no file in the tree.
+  expect(screen.queryByRole("treeitem", { name: /has notes/, hidden: true })).toBeNull();
 });

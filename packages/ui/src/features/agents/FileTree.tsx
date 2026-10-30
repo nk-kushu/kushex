@@ -27,18 +27,20 @@ const byName = (a: Node, b: Node) =>
     : a.name.localeCompare(b.name, undefined, { sensitivity: "base", numeric: true });
 
 /** Folders and files from slash-separated paths; folders first, then by name. */
-function buildTree(paths: readonly string[]): readonly Node[] {
+function buildTree(paths: readonly string[], folders: readonly string[]): readonly Node[] {
   type Draft = { folders: Map<string, Draft>; files: string[] };
   const root: Draft = { folders: new Map(), files: [] };
-  for (const path of paths) {
+  const folderAt = (segments: readonly string[]) => {
     let folder = root;
-    for (const segment of path.split("/").slice(0, -1)) {
+    for (const segment of segments) {
       if (!folder.folders.has(segment))
         folder.folders.set(segment, { folders: new Map(), files: [] });
       folder = folder.folders.get(segment)!;
     }
-    folder.files.push(path);
-  }
+    return folder;
+  };
+  for (const folder of folders) folderAt(folder.split("/"));
+  for (const path of paths) folderAt(path.split("/").slice(0, -1)).files.push(path);
   const nodes = (draft: Draft, prefix: string): Node[] =>
     [
       ...[...draft.folders].map(([name, child]): Node => ({
@@ -100,6 +102,8 @@ function Highlight({ text, query }: Readonly<{ text: string; query: string }>) {
 type Props = Readonly<{
   label: string;
   paths: readonly string[];
+  /** Folders to show even without files in them. */
+  folders: readonly string[];
   active: string;
   /** Open folders, by path. Ignored while filtering: every match is shown. */
   expanded: ReadonlySet<string>;
@@ -123,6 +127,7 @@ type Props = Readonly<{
 export function FileTree({
   label,
   paths,
+  folders,
   active,
   expanded,
   onExpandedChange,
@@ -135,7 +140,7 @@ export function FileTree({
   withNotes,
   empty,
 }: Props) {
-  const tree = useMemo(() => buildTree(paths), [paths]);
+  const tree = useMemo(() => buildTree(paths, folders), [paths, folders]);
   const shown = useMemo(() => (filter ? filterTree(tree, filter) : tree), [tree, filter]);
   const rows = flatten(shown, (folder) => !!filter || expanded.has(folder));
   const dirtyFolders = useMemo(() => foldersOf(dirty), [dirty]);

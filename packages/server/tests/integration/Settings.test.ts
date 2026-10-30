@@ -16,6 +16,8 @@ beforeEach(async () => {
     "20261023000000_projects_and_workspaces",
     "20261025000000_user_settings",
     "20261025120000_user_settings_splitter_sizes",
+    "20261030120000_user_settings_editor_font_size",
+    "20261030130000_user_settings_note_font_size",
   ]) {
     await migrator.add(
       migration,
@@ -46,16 +48,20 @@ describe("user settings persistence", () => {
       repository.update("alice", { colorMode: "dark" }),
       repository.update("alice", { density: "compact" }),
     ]);
-    expect(await repository.find("alice")).toEqual({ colorMode: "dark", density: "compact", splitterSizes: {} });
+    expect(await repository.find("alice")).toEqual({ colorMode: "dark", density: "compact", editorFontSize: 13, noteFontSize: 13, splitterSizes: {} });
     expect(await repository.find("bob")).toBeNull();
     expect(await repository.update("bob", { colorMode: "light" })).toEqual({
       colorMode: "light",
       density: "comfortable",
+      editorFontSize: 13,
+      noteFontSize: 13,
       splitterSizes: {},
     });
     expect(await repository.update("alice", { colorMode: "system" })).toEqual({
       colorMode: "system",
       density: "compact",
+      editorFontSize: 13,
+      noteFontSize: 13,
       splitterSizes: {},
     });
     await database.stop();
@@ -67,6 +73,8 @@ describe("user settings persistence", () => {
     expect(await new PrismaSettingsRepository(database.client).find("alice")).toEqual({
       colorMode: "system",
       density: "compact",
+      editorFontSize: 13,
+      noteFontSize: 13,
       splitterSizes: {},
     });
     expect(await database.client.userSettings.count()).toBe(2);
@@ -90,7 +98,21 @@ describe("user settings persistence", () => {
     ).toEqual({
       colorMode: "dark",
       density: "compact",
+      editorFontSize: 13,
+      noteFontSize: 13,
       splitterSizes: { files: [0.6, 0.4], notes: [0.5, 0.5] },
     });
+  });
+  it("saves the editor font size without touching other settings", async () => {
+    const repository = new PrismaSettingsRepository(database.client);
+    await repository.update("alice", { colorMode: "dark", splitterSizes: { files: [0.7, 0.3] } });
+    expect(await repository.update("alice", { editorFontSize: 18 })).toEqual({
+      colorMode: "dark",
+      density: "comfortable",
+      editorFontSize: 18,
+      noteFontSize: 13,
+      splitterSizes: { files: [0.7, 0.3] },
+    });
+    expect(await repository.find("alice")).toMatchObject({ editorFontSize: 18 });
   });
 });

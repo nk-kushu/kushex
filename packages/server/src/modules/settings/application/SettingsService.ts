@@ -10,6 +10,8 @@ export class SettingsService {
       (await this.settings.find(context.actor.id)) ?? {
         colorMode: "system",
         density: "comfortable",
+        editorFontSize: 13,
+        noteFontSize: 13,
         splitterSizes: {},
       }
     );

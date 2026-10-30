@@ -20,15 +20,20 @@ import type {
   AgentFileDto,
   AgentSummaryDto,
   CreateAgentFileRequest,
+  CreateNoteRequest,
   CreateProjectRequest,
   LibraryTypesDto,
+  NodeTypesDto,
   DirectoryPageDto,
   FileContentDto,
+  NoteDto,
+  NoteSummaryDto,
   Page,
   ProjectDto,
   UserSettingsDto,
   UpdateAgentCodeNotesRequest,
   UpdateAgentFileRequest,
+  UpdateNoteRequest,
   UpdateUserSettingsRequest,
 } from "@kushex/contracts";
 import type { StoreOptions } from "../../app/storeOptions";
@@ -54,6 +59,7 @@ export const kushexApi = createApi({
     "ChatThreads",
     "WorkspaceFiles",
     "CodingProposal",
+    "Notes",
   ],
   keepUnusedDataFor: 0,
   endpoints: (build) => ({
@@ -80,6 +86,31 @@ export const kushexApi = createApi({
         body: {},
       }),
       invalidatesTags: ["ChatThreads"],
+    }),
+    /** Note summaries; `query` searches titles and content. */
+    notes: build.query<readonly NoteSummaryDto[], string>({
+      query: (query) => ({ url: "/notes", params: query ? { query } : {} }),
+      providesTags: ["Notes"],
+    }),
+    note: build.query<NoteDto, string>({
+      query: (id) => `/notes/${encodeURIComponent(id)}`,
+    }),
+    createNote: build.mutation<NoteDto, CreateNoteRequest>({
+      query: (body) => ({ url: "/notes", method: "POST", body }),
+      invalidatesTags: ["Notes"],
+    }),
+    // The open note keeps its own draft and revision, so only the list is refetched.
+    updateNote: build.mutation<NoteDto, UpdateNoteRequest & { id: string }>({
+      query: ({ id, ...body }) => ({
+        url: `/notes/${encodeURIComponent(id)}`,
+        method: "PATCH",
+        body,
+      }),
+      invalidatesTags: ["Notes"],
+    }),
+    deleteNote: build.mutation<void, string>({
+      query: (id) => ({ url: `/notes/${encodeURIComponent(id)}`, method: "DELETE", body: {} }),
+      invalidatesTags: ["Notes"],
     }),
     settings: build.query<UserSettingsDto, void>({
       query: () => "/settings",
@@ -132,9 +163,9 @@ export const kushexApi = createApi({
      * over an event stream, and each one refetches them; so does every (re)connect, which
      * covers changes made while the stream was down.
      */
-    agentFiles: build.query<readonly AgentFileDto[], string>({
+    agentFiles: build.query<Pick<AgentDto, "files" | "folders">, string>({
       query: (name) => `/agents/${encodeURIComponent(name)}`,
-      transformResponse: (agent: AgentDto) => agent.files,
+      transformResponse: ({ files, folders }: AgentDto) => ({ files, folders }),
       providesTags: (_result, _error, name) => [{ type: "AgentFiles", id: name }],
       async onCacheEntryAdded(name, { cacheEntryRemoved, dispatch, extra }) {
         if (typeof EventSource === "undefined") return;
@@ -198,6 +229,9 @@ export const kushexApi = createApi({
     }),
     kushibotTypes: build.query<LibraryTypesDto, void>({
       query: () => "/kushibot/types",
+    }),
+    nodeTypes: build.query<NodeTypesDto, void>({
+      query: () => "/node/types",
     }),
     // Agent runs stream their events over EventSource (app/agentRunStreams.ts); these
     // endpoints start, stop and debug them.
@@ -322,6 +356,11 @@ export const {
   useLazyChatThreadQuery,
   useCreateChatThreadMutation,
   useDeleteChatThreadsMutation,
+  useNotesQuery,
+  useNoteQuery,
+  useCreateNoteMutation,
+  useUpdateNoteMutation,
+  useDeleteNoteMutation,
   useProjectQuery,
   useProjectsQuery,
   useCreateProjectMutation,
@@ -338,6 +377,7 @@ export const {
   useAgentNotesQuery,
   useUpdateAgentNotesMutation,
   useKushibotTypesQuery,
+  useNodeTypesQuery,
   useStartAgentRunMutation,
   useCodingProposalReviewQuery,
   useLazyCodingProposalReviewQuery,

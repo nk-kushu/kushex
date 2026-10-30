@@ -8,16 +8,19 @@ import {
   IconX,
 } from "@tabler/icons-react";
 import { useEffect, useRef, useState } from "react";
+import { useAppSelector } from "../../../app/hooks";
 import { AppIcon } from "../../../shared/components/AppIcon";
 import { borderAll, borderB, borderT } from "../../../shared/lib/styles";
+import { selectNoteFontSize } from "../../settings/settingsSlice";
 import { FileTypeIcon } from "../fileIcons";
 import { lineLabel, type NoteAnchor } from "./codeNotes";
-import { Markdown } from "./Markdown";
+import { Markdown } from "../../../shared/components/Markdown";
 
 /** A note being shown or written; `id` is null until a new note is saved. */
 export type NoteView = Readonly<{
   id: string | null;
-  file: string;
+  /** Null for a general note, which is not tied to any code. */
+  file: string | null;
   start: number;
   end: number;
   snippet: string;
@@ -43,11 +46,11 @@ type Props = Readonly<{
 const MOD = typeof navigator !== "undefined" && /Mac/.test(navigator.platform) ? "⌘" : "Ctrl+";
 const PLACEHOLDER = `Write in markdown, e.g.
 
-## Why this exists
-- what the code does and why
+## Why this matters
+- what it is about and why
 - gotchas, TODOs, links`;
 
-/** One note next to the code: its lines, the code they had, and its markdown. */
+/** One note next to the code: its markdown and, if it is pinned, its lines and their code. */
 export function NotePanel({
   note,
   anchor,
@@ -59,6 +62,7 @@ export function NotePanel({
   onReveal,
   onReattach,
 }: Props) {
+  const fontSize = useAppSelector(selectNoteFontSize);
   const isNew = note.id === null;
   const [editing, setEditing] = useState(isNew);
   const [mode, setMode] = useState<"write" | "preview">("write");
@@ -87,7 +91,10 @@ export function NotePanel({
   };
 
   return (
-    <aside aria-label="Code note" className="kx:flex kx:h-full kx:flex-col kx:bg-surface">
+    <aside
+      aria-label={note.file === null ? "General note" : "Code note"}
+      className="kx:flex kx:h-full kx:flex-col kx:bg-surface"
+    >
       <div
         className={`kx:flex kx:h-9 kx:shrink-0 kx:items-center kx:gap-2 kx:pr-1 kx:pl-3 ${borderB}`}
       >
@@ -134,43 +141,45 @@ export function NotePanel({
       </div>
 
       <div className="kx:flex kx:min-h-0 kx:flex-1 kx:flex-col kx:gap-3 kx:overflow-auto kx:p-3">
-        <div className="kx:flex kx:flex-col kx:gap-1.5">
-          <button
-            type="button"
-            onClick={onReveal}
-            title="Show in the editor"
-            className="kx:flex kx:min-w-0 kx:cursor-pointer kx:items-center kx:gap-1.5 kx:border-0 kx:bg-transparent kx:p-0 kx:text-left kx:text-xs kx:text-text-muted kx:hover:text-primary"
-          >
-            <FileTypeIcon path={note.file} size={14} />
-            <span className="kx:truncate kx:font-medium kx:text-text">{note.file}</span>
-            <span className="kx:shrink-0">· {lineLabel(lines)}</span>
-            {anchor?.status === "moved" && (
-              <Tooltip title={`The code moved; the note followed it from ${lineLabel(note)}.`}>
-                <Tag className="kx:m-0 kx:shrink-0" bordered={false}>
-                  moved
-                </Tag>
-              </Tooltip>
-            )}
-          </button>
-          <pre
-            aria-label="Code the note points at"
-            className={`kx:m-0 kx:max-h-44 kx:overflow-auto kx:bg-surface-muted kx:py-1.5 kx:font-mono kx:text-[11.5px] kx:leading-[1.5] ${borderAll} ${
-              outdated || missing ? "kx:opacity-70" : ""
-            }`}
-          >
-            {note.snippet.split("\n").map((line, index) => (
-              <div key={index} className="kx:flex kx:gap-3 kx:pr-2">
-                <span
-                  aria-hidden
-                  className="kx:w-8 kx:shrink-0 kx:text-right kx:text-text-muted kx:select-none"
-                >
-                  {lines.start + index}
-                </span>
-                <span className="kx:whitespace-pre">{line || " "}</span>
-              </div>
-            ))}
-          </pre>
-        </div>
+        {note.file !== null && (
+          <div className="kx:flex kx:flex-col kx:gap-1.5">
+            <button
+              type="button"
+              onClick={onReveal}
+              title="Show in the editor"
+              className="kx:flex kx:min-w-0 kx:cursor-pointer kx:items-center kx:gap-1.5 kx:border-0 kx:bg-transparent kx:p-0 kx:text-left kx:text-xs kx:text-text-muted kx:hover:text-primary"
+            >
+              <FileTypeIcon path={note.file} size={14} />
+              <span className="kx:truncate kx:font-medium kx:text-text">{note.file}</span>
+              <span className="kx:shrink-0">· {lineLabel(lines)}</span>
+              {anchor?.status === "moved" && (
+                <Tooltip title={`The code moved; the note followed it from ${lineLabel(note)}.`}>
+                  <Tag className="kx:m-0 kx:shrink-0" bordered={false}>
+                    moved
+                  </Tag>
+                </Tooltip>
+              )}
+            </button>
+            <pre
+              aria-label="Code the note points at"
+              className={`kx:m-0 kx:max-h-44 kx:overflow-auto kx:bg-surface-muted kx:py-1.5 kx:font-mono kx:text-[11.5px] kx:leading-[1.5] ${borderAll} ${
+                outdated || missing ? "kx:opacity-70" : ""
+              }`}
+            >
+              {note.snippet.split("\n").map((line, index) => (
+                <div key={index} className="kx:flex kx:gap-3 kx:pr-2">
+                  <span
+                    aria-hidden
+                    className="kx:w-8 kx:shrink-0 kx:text-right kx:text-text-muted kx:select-none"
+                  >
+                    {lines.start + index}
+                  </span>
+                  <span className="kx:whitespace-pre">{line || " "}</span>
+                </div>
+              ))}
+            </pre>
+          </div>
+        )}
 
         {(outdated || missing) && (
           <div className="kx:flex kx:flex-col kx:gap-2 kx:border kx:border-solid kx:border-warning/40 kx:bg-warning/10 kx:p-2.5">
@@ -230,7 +239,8 @@ export function NotePanel({
                 value={text}
                 placeholder={PLACEHOLDER}
                 autoSize={{ minRows: 8, maxRows: 28 }}
-                className="kx:font-mono kx:text-[12.5px]"
+                className="kx:font-mono"
+                style={{ fontSize }}
                 onChange={(event) => setText(event.target.value)}
                 onKeyDown={(event) => {
                   if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
@@ -245,7 +255,7 @@ export function NotePanel({
             ) : (
               <div className={`kx:min-h-40 kx:px-3 kx:py-2 ${borderAll}`}>
                 {text.trim() ? (
-                  <Markdown text={text} />
+                  <Markdown text={text} style={{ fontSize }} />
                 ) : (
                   <Typography.Text type="secondary">Nothing to preview.</Typography.Text>
                 )}
@@ -273,7 +283,7 @@ export function NotePanel({
         ) : (
           <>
             {error && <Alert type="error" showIcon title={error} />}
-            <Markdown text={note.body} />
+            <Markdown text={note.body} style={{ fontSize }} />
           </>
         )}
       </div>

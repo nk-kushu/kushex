@@ -1,18 +1,29 @@
 import {
   IconAdjustments,
+  IconArchive,
   IconArrowForwardUp,
   IconArrowLeft,
   IconArrowUp,
   IconAt,
+  IconBrain,
   IconBug,
   IconChecklist,
+  IconCircleDot,
+  IconCpu,
+  IconDatabase,
   IconFile,
   IconFiles,
   IconLayoutGrid,
+  IconList,
+  IconListTree,
+  IconLayersSubtract,
+  IconMessageCircle,
   IconNotes,
+  IconNotebook,
   IconMessagePlus,
   IconPaperclip,
   IconPin,
+  IconPinnedOff,
   IconPlayerPause,
   IconPlayerPlay,
   IconPlayerStop,
@@ -22,9 +33,11 @@ import {
   IconSearch,
   IconSparkles,
   IconSettings,
+  IconStack2,
   IconStepInto,
   IconStepOut,
   IconTimelineEvent,
+  IconTool,
   IconTrash,
   IconUser,
 } from "@tabler/icons-react";
@@ -42,6 +55,7 @@ export const UserIcon = IconUser;
 export const MentionIcon = IconAt;
 export const AttachIcon = IconPaperclip;
 export const PinIcon = IconPin;
+export const UnpinIcon = IconPinnedOff;
 export const FilterIcon = IconAdjustments;
 export const NewChatIcon = IconMessagePlus;
 export const DebugIcon = IconBug;
@@ -58,3 +72,18 @@ export const ChatStartIcon = IconSparkles;
 export const DebugEventsIcon = IconTimelineEvent;
 export const BackIcon = IconArrowLeft;
 export const RefreshIcon = IconRefresh;
+export const TraceIcon = IconListTree;
+export const EventListIcon = IconList;
+/** Debug trace spans, one per harness concept. */
+export const AgentRunIcon = IconRobot;
+export const WorkflowStepIcon = IconStack2;
+export const ExecutorIcon = IconCpu;
+export const MindUnitIcon = IconBrain;
+export const TurnIcon = IconMessageCircle;
+export const ModelCallIcon = IconSparkles;
+export const ToolCallIcon = IconTool;
+export const OperationIcon = IconCircleDot;
+export const ContextIcon = IconLayersSubtract;
+export const ArtifactIcon = IconArchive;
+export const MemoryIcon = IconDatabase;
+export const NotebookIcon = IconNotebook;

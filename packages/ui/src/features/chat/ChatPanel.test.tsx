@@ -319,15 +319,24 @@ it("opens a run's debug events from the chat", async () => {
 
   const run = await screen.findByLabelText("reviewer run");
   await user.click(within(run).getByRole("button", { name: "Debug events" }));
+  // The trace opens first: operations as a tree; picking one shows it in the inspector.
+  const trace = await screen.findByRole("list", { name: "Trace" });
+  expect(within(trace).getByText("812 ms")).toBeInTheDocument();
+  await user.click(within(trace).getByText("Agent"));
+  expect(
+    within(screen.getByRole("complementary", { name: "Span details" })).getByText("Agent run"),
+  ).toBeInTheDocument();
+
+  await user.click(screen.getByText("All events"));
   const timeline = await screen.findByRole("list", { name: "Debug events" });
   expect(within(timeline).getByText("Reading the files")).toBeInTheDocument();
   expect(within(timeline).getByText("812 ms")).toBeInTheDocument();
   // Span starts are folded into their completion unless shown.
   expect(within(timeline).queryByText(/agent\.run/)).not.toBeInTheDocument();
   await user.click(screen.getByRole("switch", { name: "Show span starts" }));
-  expect(within(timeline).getByText(/agent\.run/)).toBeInTheDocument();
+  expect(within(timeline).getByText("Started agent.run")).toBeInTheDocument();
 
-  await user.type(screen.getByLabelText("Filter events"), "model");
+  await user.type(screen.getByLabelText("Filter"), "model");
   expect(within(timeline).queryByText("Reading the files")).not.toBeInTheDocument();
   // The chat stays open next to the timeline.
   expect(screen.getByRole("complementary", { name: "Chat" })).toBeInTheDocument();
@@ -373,6 +382,65 @@ const codingResult = {
     unresolved: [],
   },
 };
+
+it("renders the standardized chat response envelope", async () => {
+  mockKushexApi([exampleProject], [exampleAgent]);
+  const user = userEvent.setup();
+  render(<KushexPanel />);
+  await user.click(await screen.findByRole("button", { name: "Open Project one" }));
+  await chooseAgent(user, "reviewer");
+  await user.type(screen.getByLabelText("Message"), "What is this project?{Enter}");
+  FakeEventSource.of("run-1").emit({
+    type: "result",
+    value: {
+      schemaVersion: 1,
+      message: "KushiGit is a **local web app** for git.",
+      unresolved: ["No tests were found."],
+      result: { answer: 42 },
+      presentation: "message",
+    },
+    truncated: false,
+  });
+  FakeEventSource.of("run-1").emit({ type: "status", status: "completed" });
+
+  const run = await screen.findByLabelText("reviewer run");
+  expect(await within(run).findByText("local web app")).toBeInTheDocument();
+  expect(within(run).getByText("No tests were found.")).toBeInTheDocument();
+  expect(within(run).getByText("Details")).toBeInTheDocument();
+});
+
+it("shows a coding run's answer as the reply when it changed no files", async () => {
+  mockKushexApi([exampleProject], [exampleAgent]);
+  const user = userEvent.setup();
+  render(<KushexPanel />);
+  await user.click(await screen.findByRole("button", { name: "Open Project one" }));
+  await chooseAgent(user, "reviewer");
+  await user.type(screen.getByLabelText("Message"), "What is **this** project about?{Enter}");
+  const stream = FakeEventSource.of("run-1");
+  stream.emit({
+    type: "result",
+    value: {
+      runId: "run-1",
+      result: {
+        summary: "KushiGit is a **local web app** for git.",
+        changedPaths: [],
+        unresolved: ["No tests were found."],
+      },
+      outcome: { status: "finished", outcome: { status: "completed" } },
+    },
+    truncated: false,
+  });
+  stream.emit({ type: "status", status: "completed" });
+
+  const run = await screen.findByLabelText("reviewer run");
+  expect(await within(run).findByText("local web app")).toBeInTheDocument();
+  expect(within(run).getByText("No tests were found.")).toBeInTheDocument();
+  // The user's message renders as markdown too.
+  expect(screen.getByText("this").tagName).toBe("STRONG");
+  // The raw result stays folded under Details.
+  expect(within(run).getByText("Details")).toBeInTheDocument();
+  expect(within(run).queryByText(/"changedPaths"/)).not.toBeInTheDocument();
+});
 
 it("reviews a completed coding run, selects files, applies the reviewed digest and refreshes an open file", async () => {
   const api = mockKushexApi([exampleProject], [exampleAgent]);

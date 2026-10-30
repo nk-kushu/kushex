@@ -17,6 +17,8 @@ class MemorySettingsRepository implements SettingsRepository {
     const settings = {
       colorMode: "system" as const,
       density: "comfortable" as const,
+      editorFontSize: 13,
+      noteFontSize: 13,
       ...saved,
       ...input,
       splitterSizes: { ...saved?.splitterSizes, ...input.splitterSizes },
@@ -67,18 +69,20 @@ describe("user settings HTTP API", () => {
   it("returns defaults without writing and preserves omitted fields on update", async () => {
     const initial = await fetch(base);
     expect(initial.headers.get("cache-control")).toBe("no-store");
-    expect(await initial.json()).toEqual({ colorMode: "system", density: "comfortable", splitterSizes: {} });
+    expect(await initial.json()).toEqual({ colorMode: "system", density: "comfortable", editorFontSize: 13, noteFontSize: 13, splitterSizes: {} });
     expect(repository.rows.size).toBe(0);
     const response = await patch({ colorMode: "dark" });
     expect(response.status).toBe(200);
     expect(response.headers.get("cache-control")).toBe("no-store");
-    expect(await response.json()).toEqual({ colorMode: "dark", density: "comfortable", splitterSizes: {} });
+    expect(await response.json()).toEqual({ colorMode: "dark", density: "comfortable", editorFontSize: 13, noteFontSize: 13, splitterSizes: {} });
     expect(await (await patch({ density: "compact" })).json()).toEqual({
       colorMode: "dark",
       density: "compact",
+      editorFontSize: 13,
+      noteFontSize: 13,
       splitterSizes: {},
     });
-    expect(await (await fetch(base)).json()).toEqual({ colorMode: "dark", density: "compact", splitterSizes: {} });
+    expect(await (await fetch(base)).json()).toEqual({ colorMode: "dark", density: "compact", editorFontSize: 13, noteFontSize: 13, splitterSizes: {} });
   });
   it("uses the request actor and isolates users", async () => {
     await patch({ colorMode: "dark" });
@@ -86,11 +90,13 @@ describe("user settings HTTP API", () => {
     expect(await (await fetch(base)).json()).toEqual({
       colorMode: "system",
       density: "comfortable",
+      editorFontSize: 13,
+      noteFontSize: 13,
       splitterSizes: {},
     });
     await patch({ density: "compact" });
     actorId = "first-user";
-    expect(await (await fetch(base)).json()).toEqual({ colorMode: "dark", density: "comfortable", splitterSizes: {} });
+    expect(await (await fetch(base)).json()).toEqual({ colorMode: "dark", density: "comfortable", editorFontSize: 13, noteFontSize: 13, splitterSizes: {} });
   });
   it("merges splitter sizes by id", async () => {
     await patch({ splitterSizes: { "workbench:side-main-chat": [0.2, 0.5, 0.3] } });
@@ -101,8 +107,42 @@ describe("user settings HTTP API", () => {
       files: [0.6, 0.4],
     });
   });
+  it.each([10, 28])("saves note font size %i, keeping omitted settings", async (noteFontSize) => {
+    await patch({ editorFontSize: 18 });
+    const response = await patch({ noteFontSize });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      colorMode: "system",
+      density: "comfortable",
+      editorFontSize: 18,
+      noteFontSize,
+      splitterSizes: {},
+    });
+  });
+  it.each([10, 28])("saves editor font size %i, keeping omitted settings", async (editorFontSize) => {
+    await patch({ colorMode: "dark" });
+    const response = await patch({ editorFontSize });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      colorMode: "dark",
+      density: "comfortable",
+      editorFontSize,
+      noteFontSize: 13,
+      splitterSizes: {},
+    });
+  });
   it.each([
     {},
+    { editorFontSize: 9 },
+    { editorFontSize: 29 },
+    { editorFontSize: 13.5 },
+    { editorFontSize: "14" },
+    { editorFontSize: null },
+    { noteFontSize: 9 },
+    { noteFontSize: 29 },
+    { noteFontSize: 13.5 },
+    { noteFontSize: "14" },
+    { noteFontSize: null },
     { splitterSizes: { files: [0.5] } },
     { splitterSizes: { files: [1.5, -0.5] } },
     { splitterSizes: { "Bad Id": [0.5, 0.5] } },

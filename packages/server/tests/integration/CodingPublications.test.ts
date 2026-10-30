@@ -24,6 +24,7 @@ import {
   AgentService,
   LocalAgentStore,
   KushibotTypesReader,
+  NodeTypesReader,
 } from "../../src/modules/agents/public.js";
 import { ChatThreads } from "../../src/modules/chat-threads/ChatThreads.js";
 import {
@@ -217,7 +218,11 @@ beforeEach(async () => {
     path.join(agentDirectory, "coding/agent.ts"),
     "export async function chat() {}\n",
   );
-  agents = new AgentService(new LocalAgentStore(agentDirectory), new KushibotTypesReader(null));
+  agents = new AgentService(
+    new LocalAgentStore(agentDirectory),
+    new KushibotTypesReader(null),
+    new NodeTypesReader(),
+  );
   launcher = new FixtureCodingLauncher(
     (await import(kushibotEntry(kushibotDirectory))) as Library,
     path.join(directory, "artifacts"),

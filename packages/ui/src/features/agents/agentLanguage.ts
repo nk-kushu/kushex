@@ -1,5 +1,5 @@
 import type { BeforeMount } from "@monaco-editor/react";
-import type { LibraryTypesDto } from "@kushex/contracts";
+import type { LibraryTypesDto, NodeTypesDto } from "@kushex/contracts";
 import { languageForPath } from "../../shared/components/CodeEditor";
 
 export type Monaco = Parameters<BeforeMount>[0];
@@ -31,11 +31,15 @@ export function disposeAgentModels(monaco: Monaco, name: string) {
 }
 
 /**
- * Lets the editor type-check `import ... from "kushibot"`: the library's declarations
+ * Lets the editor type-check `import ... from "kushibot"` and Node's modules: declarations
  * are registered as `node_modules/<package>/...`, where Node resolution looks for them.
  * Monaco is one instance per page, so this replaces any previously registered set.
  */
-export function configureAgentLanguage(monaco: Monaco, types: LibraryTypesDto | undefined) {
+export function configureAgentLanguage(
+  monaco: Monaco,
+  types: LibraryTypesDto | undefined,
+  nodeTypes: NodeTypesDto | undefined,
+) {
   const typescript = monaco.typescript;
   typescript.typescriptDefaults.setCompilerOptions({
     target: typescript.ScriptTarget.ESNext,
@@ -44,15 +48,20 @@ export function configureAgentLanguage(monaco: Monaco, types: LibraryTypesDto | 
     strict: true,
     noEmit: true,
     allowNonTsExtensions: true,
+    // Agents run on Node, where `import path from "node:path"` works.
+    esModuleInterop: true,
+    skipLibCheck: true,
   });
   // Without it the worker only sees the file being checked, so relative imports between
   // the agent's files fail with "Cannot find module" until something else syncs them.
   typescript.typescriptDefaults.setEagerModelSync(true);
   typescript.typescriptDefaults.setExtraLibs(
-    (types?.files ?? []).map((file) => ({
-      content: file.content,
-      filePath: `file:///node_modules/${types!.packageName}/${file.path}`,
-    })),
+    [...(types ? [types] : []), ...(nodeTypes?.packages ?? [])].flatMap((library) =>
+      library.files.map((file) => ({
+        content: file.content,
+        filePath: `file:///node_modules/${library.packageName}/${file.path}`,
+      })),
+    ),
   );
 }
 

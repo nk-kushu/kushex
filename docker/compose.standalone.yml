@@ -39,6 +39,9 @@ services:
   backend:
     build: *backend-build
     init: true
+    # Docker's default syscall policy plus Bubblewrap's namespace/mount syscalls.
+    security_opt:
+      - seccomp=./cli-seccomp.json
     environment:
       HOST: 0.0.0.0
       PORT: "3000"

@@ -15,8 +15,10 @@ import {
   settingsRequested,
   selectColorMode,
   selectDensity,
+  selectEditorFontSize,
   toThemeMode,
 } from "./features/settings/settingsSlice";
+import { EditorFontSizeContext } from "./shared/lib/editorFontSize";
 import type { KushexPanelHandle, KushexPanelOptions } from "./types";
 
 type KushexPanelProps = KushexPanelOptions & Readonly<{ ref?: Ref<KushexPanelHandle> }>;
@@ -85,6 +87,7 @@ function ThemedPanel({
 }) {
   const colorMode = useAppSelector(selectColorMode);
   const density = useAppSelector(selectDensity);
+  const editorFontSize = useAppSelector(selectEditorFontSize);
   const rootRef = useRef<HTMLDivElement>(null);
 
   return (
@@ -102,7 +105,9 @@ function ThemedPanel({
               componentSize={density === "compact" ? "small" : "middle"}
               getPopupContainer={() => rootRef.current ?? document.body}
             >
-              <AntApp className="kx:h-full">{children}</AntApp>
+              <EditorFontSizeContext value={editorFontSize}>
+                <AntApp className="kx:h-full">{children}</AntApp>
+              </EditorFontSizeContext>
             </ConfigProvider>
           </ThemeBridge>
         </ThemeProvider>

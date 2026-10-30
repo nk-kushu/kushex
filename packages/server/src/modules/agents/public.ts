@@ -1,8 +1,9 @@
 export { AgentService } from "./application/AgentService.js";
 export type { AgentEntry, AgentStore } from "./application/AgentStore.js";
-export type { LibraryTypesSource } from "./application/LibraryTypesSource.js";
+export type { LibraryTypesSource, NodeTypesSource } from "./application/LibraryTypesSource.js";
 export { LocalAgentStore } from "./infrastructure/LocalAgentStore.js";
 export { KushibotTypesReader } from "./infrastructure/KushibotTypesReader.js";
+export { NodeTypesReader } from "./infrastructure/NodeTypesReader.js";
 export { AgentsController } from "./transport/AgentsController.js";
 export { AgentName } from "./domain/AgentName.js";
 export { AgentFilePath } from "./domain/AgentFilePath.js";

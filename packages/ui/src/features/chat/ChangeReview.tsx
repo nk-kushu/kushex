@@ -3,6 +3,7 @@ import { Alert, Button, Modal, Select, Spin, Switch, Tag } from "antd";
 import { useThemeMode } from "antd-style";
 import { useState } from "react";
 import { languageForPath } from "../../shared/components/CodeEditor";
+import { useEditorFontSize } from "../../shared/lib/editorFontSize";
 
 /** Exact versions belonging to a server-recorded proposal. */
 export type ReviewedChange = Readonly<{
@@ -44,6 +45,7 @@ export function ChangeReview({
   onCheck,
 }: ChangeReviewProps) {
   const { isDarkMode } = useThemeMode();
+  const fontSize = useEditorFontSize();
   const [selected, setSelected] = useState(changes[0]?.path);
   const [sideBySide, setSideBySide] = useState(true);
   const change = changes.find((entry) => entry.path === selected) ?? changes[0];
@@ -155,7 +157,7 @@ export function ChangeReview({
                   minimap: { enabled: false },
                   scrollBeyondLastLine: false,
                   ariaLabel: `${change.path} proposed changes`,
-                  fontSize: 13,
+                  fontSize,
                 }}
               />
             </div>

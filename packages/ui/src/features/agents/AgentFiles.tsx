@@ -31,6 +31,8 @@ const EXPAND_ALL_UP_TO = 40;
 type Props = Readonly<{
   agentName: string;
   files: readonly AgentFileDto[];
+  /** Folders on disk, which also shows the empty ones. */
+  folders: readonly string[];
   primaryFile: string;
   active: string;
   dirty: ReadonlySet<string>;
@@ -45,6 +47,7 @@ type Props = Readonly<{
 export function AgentFiles({
   agentName,
   files,
+  folders: onDisk,
   primaryFile,
   active,
   dirty,
@@ -54,12 +57,15 @@ export function AgentFiles({
   onCreated,
 }: Props) {
   const paths = useMemo(() => files.map((file) => file.path), [files]);
-  const folders = useMemo(() => [...foldersOf(paths)].sort(), [paths]);
+  const folders = useMemo(
+    () => [...new Set([...foldersOf(paths), ...onDisk])].sort(),
+    [paths, onDisk],
+  );
   const [creatingIn, setCreatingIn] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const filter = query.trim().toLowerCase();
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(() =>
-    paths.length <= EXPAND_ALL_UP_TO ? foldersOf(paths) : foldersOf([active]),
+    paths.length <= EXPAND_ALL_UP_TO ? new Set(folders) : foldersOf([active]),
   );
   // Opening a file, including a newly created one, reveals its folders.
   const [revealed, setRevealed] = useState(active);
@@ -107,6 +113,7 @@ export function AgentFiles({
         <FileTree
           label="Agent files"
           paths={paths}
+          folders={folders}
           active={active}
           expanded={expanded}
           onExpandedChange={(folder, open) =>

@@ -1,20 +1,19 @@
 import { PluginsPage } from "../plugins/PluginsPage";
 import { useEffect } from "react";
-import { Navigate, Route, Routes, useNavigate, useParams } from "react-router";
+import { Navigate, Route, Routes, useParams } from "react-router";
 import { useAppDispatch, useAppSelector } from "../../app/hooks";
 import { AgentsPage } from "../agents/AgentsPage";
 import { ChatThreadsScreen } from "../chat/ChatThreadsScreen";
 import { DebugEventsScreen } from "../debug-events/DebugEventsScreen";
 import { FilesMain } from "../files/FilesMain";
 import { FilesSide } from "../files/FilesSide";
-import { NotesMain } from "../notes/NotesMain";
-import { NotesSide, notes } from "../notes/NotesSide";
+import { NotesPage } from "../notes/NotesPage";
 import { ProjectsScreen } from "../projects/ProjectsScreen";
 import { SettingsScreen } from "../settings/SettingsScreen";
 import { TasksScreen } from "../tasks/TasksScreen";
 import { paths } from "./navigation";
 import { Panes } from "./Panes";
-import { mobileViewChanged, projectOpened, selectProjectId } from "./workbenchSlice";
+import { projectOpened, selectProjectId } from "./workbenchSlice";
 
 /** Files of the project in the URL; opening the URL directly opens that project. */
 function ProjectFilesPage() {
@@ -59,29 +58,6 @@ function FilesPage() {
   const projectId = useAppSelector(selectProjectId);
   if (projectId) return <Navigate to={paths.files(projectId)} replace />;
   return <Panes side={<FilesSide />} main={<FilesMain />} chat />;
-}
-
-function NotesPage() {
-  const dispatch = useAppDispatch();
-  const navigate = useNavigate();
-  const { noteId } = useParams();
-  const note = notes.find((item) => item.key === noteId);
-  if (!note) return <Navigate to={paths.notes(notes[0]!.key)} replace />;
-  return (
-    <Panes
-      side={
-        <NotesSide
-          selected={note.key}
-          onSelect={(key) => {
-            void navigate(paths.notes(key));
-            dispatch(mobileViewChanged("main"));
-          }}
-        />
-      }
-      main={<NotesMain key={note.key} title={note.title} />}
-      chat
-    />
-  );
 }
 
 export function WorkbenchRoutes() {

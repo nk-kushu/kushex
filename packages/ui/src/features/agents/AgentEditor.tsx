@@ -28,6 +28,7 @@ import type {
   DebugBreakpointDto,
   DebugCallFrameDto,
   LibraryTypesDto,
+  NodeTypesDto,
 } from "@kushex/contracts";
 import { useAppDispatch, useAppSelector } from "../../app/hooks";
 import { errorMessage } from "../../shared/api/errorMessage";
@@ -37,6 +38,7 @@ import {
   useAgentQuery,
   useKushibotTypesQuery,
   useLazyScriptSourceQuery,
+  useNodeTypesQuery,
   useUpdateAgentFileMutation,
   useUpdateAgentNotesMutation,
 } from "../../shared/api/kushexApi";
@@ -77,7 +79,7 @@ import {
   type CodeNote,
 } from "./notes/codeNotes";
 import { NotePanel, type NoteView } from "./notes/NotePanel";
-import { Markdown } from "./notes/Markdown";
+import { Markdown } from "../../shared/components/Markdown";
 import { NotesList } from "./notes/NotesList";
 import { selectedLines, useCodeNotes, type LineRange } from "./notes/useCodeNotes";
 import { useResizableWidth } from "./notes/useResizableWidth";
@@ -111,6 +113,7 @@ const isMarkdown = (path: string) => languageForPath(path) === "markdown";
 export function AgentEditor({ name }: Readonly<{ name: string }>) {
   const agent = useAgentQuery(name, { refetchOnMountOrArgChange: true });
   const types = useKushibotTypesQuery();
+  const nodeTypes = useNodeTypesQuery();
   if (agent.error)
     return (
       <Alert
@@ -122,7 +125,7 @@ export function AgentEditor({ name }: Readonly<{ name: string }>) {
       />
     );
   // The types configure Monaco before the models exist, so wait for them (or their failure).
-  if (!agent.data || types.isLoading)
+  if (!agent.data || types.isLoading || nodeTypes.isLoading)
     return (
       <div className="kx:flex kx:h-full kx:items-center kx:justify-center kx:bg-surface">
         <Spin aria-label="Loading agent" />
@@ -135,6 +138,8 @@ export function AgentEditor({ name }: Readonly<{ name: string }>) {
       agent={agent.data}
       types={types.data}
       typesError={types.error}
+      nodeTypes={nodeTypes.data}
+      nodeTypesError={nodeTypes.error}
       onReload={() => void agent.refetch()}
     />
   );
@@ -144,11 +149,15 @@ function AgentWorkspace({
   agent,
   types,
   typesError,
+  nodeTypes,
+  nodeTypesError,
   onReload,
 }: Readonly<{
   agent: AgentDto;
   types: LibraryTypesDto | undefined;
   typesError: unknown;
+  nodeTypes: NodeTypesDto | undefined;
+  nodeTypesError: unknown;
   onReload: () => void;
 }>) {
   const [files, setFiles] = useState<readonly AgentFileDto[]>(agent.files);
@@ -343,7 +352,8 @@ function AgentWorkspace({
   // up as they are now. Files with unsaved edits stay as they were opened, so saving them
   // reports the conflict instead of overwriting the other change.
   const activeUri = agentFileUri(agent.name, active);
-  const onDisk = useAgentFilesQuery(agent.name).data;
+  const listing = useAgentFilesQuery(agent.name).data;
+  const onDisk = listing?.files;
   const [merged, setMerged] = useState(onDisk);
   if (onDisk && onDisk !== merged) {
     setMerged(onDisk);
@@ -499,15 +509,18 @@ function AgentWorkspace({
       dispatch(breakpointsMoved({ agentName: agent.name, file: active, lines: moved })),
   });
 
-  // Code notes: markdown notes pinned to lines of the agent's files, kept in the database as
-  // one markdown document. They anchor against the drafts, so their marks follow the code
-  // while it is edited.
+  // Code notes: markdown notes pinned to lines of the agent's files, or general ones not tied to
+  // any code, kept in the database as one markdown document. They anchor against the drafts, so
+  // their marks follow the code while it is edited.
   const storedNotes = useAgentNotesQuery(agent.name, { refetchOnMountOrArgChange: true });
   const notesText = storedNotes.data?.content ?? "";
   const notes = useMemo(() => parseNotes(notesText), [notesText]);
   const pinned = notes.map((note) => ({
     note,
-    anchor: anchorNote(note, isTextFile(note.file) ? drafts[note.file] : undefined),
+    anchor: anchorNote(
+      note,
+      note.file !== null && isTextFile(note.file) ? drafts[note.file] : undefined,
+    ),
   }));
   const [noteDraft, setNoteDraft] = useState<NoteView | null>(null);
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
@@ -556,13 +569,21 @@ function AgentWorkspace({
     setNoteDraft(null);
     setNoteError(null);
     setSelectedNoteId(id);
-    if (isTextFile(found.note.file)) openLocation(found.note.file, found.anchor.start);
+    // A general note has no file to open.
+    if (found.note.file === null) setNarrowView("editor");
+    else if (isTextFile(found.note.file)) openLocation(found.note.file, found.anchor.start);
   };
   const addNote = (lines: LineRange) => {
     if (library || current?.kind !== "text") return;
     setSelectedNoteId(null);
     setNoteError(null);
     setNoteDraft({ id: null, file: active, ...lines, snippet: snippetOf(active, lines), body: "" });
+  };
+  const addGeneralNote = () => {
+    setSelectedNoteId(null);
+    setNoteError(null);
+    setNoteDraft({ id: null, file: null, start: 0, end: 0, snippet: "", body: "" });
+    setNarrowView("editor");
   };
   const saveNote = async (body: string) => {
     if (noteDraft) {
@@ -642,7 +663,8 @@ function AgentWorkspace({
       onClose={closeNote}
       onReveal={() => {
         const start = selectedPinned?.anchor.start ?? panelNote.start;
-        if (isTextFile(panelNote.file)) openLocation(panelNote.file, start);
+        if (panelNote.file !== null && isTextFile(panelNote.file))
+          openLocation(panelNote.file, start);
       }}
       onReattach={library || noteDraft ? undefined : () => void reattachNote()}
     />
@@ -772,7 +794,7 @@ function AgentWorkspace({
           aria-label="File path"
           className="kx:flex kx:min-w-0 kx:flex-1 kx:items-center kx:gap-1 kx:overflow-hidden kx:text-xs kx:text-text-muted"
         >
-          <span className="kx:shrink-0">{library ? "kushibot" : agent.name}</span>
+          <span className="kx:shrink-0">{library ? "library" : agent.name}</span>
           {pathParts.map((part, index) => {
             const last = index === pathParts.length - 1;
             return (
@@ -885,6 +907,13 @@ function AgentWorkspace({
           />
         )
       )}
+      {nodeTypesError ? (
+        <Alert
+          banner
+          type="warning"
+          title={`Node.js types are unavailable, so its modules are not type-checked: ${errorMessage(nodeTypesError)}`}
+        />
+      ) : null}
       {library || current?.kind === "text" ? (
         // The preview covers the editor rather than replacing it, so Monaco is not remounted.
         <div className="kx:relative kx:flex kx:min-h-0 kx:flex-1 kx:flex-col">
@@ -908,7 +937,7 @@ function AgentWorkspace({
             }}
             beforeMount={(monaco) => {
               monacoRef.current = monaco;
-              configureAgentLanguage(monaco, types);
+              configureAgentLanguage(monaco, types, nodeTypes);
               syncAgentModels(monaco, agent.name, drafts);
             }}
             onMount={handleMount}
@@ -1018,11 +1047,12 @@ function AgentWorkspace({
         <AgentFiles
           agentName={agent.name}
           files={files}
+          folders={listing?.folders ?? agent.folders}
           primaryFile={agent.primaryFile}
           active={library ? "" : active}
           dirty={dirty}
           withBreakpoints={new Set(Object.keys(breakpoints))}
-          withNotes={new Set(notes.map((note) => note.file))}
+          withNotes={new Set(notes.flatMap((note) => note.file ?? []))}
           onOpen={openFile}
           onCreated={addFile}
         />
@@ -1038,7 +1068,9 @@ function AgentWorkspace({
           notes={pinned}
           activeFile={active}
           selectedId={selectedNoteId}
+          adding={noteDraft !== null}
           onOpen={openNote}
+          onAdd={addGeneralNote}
           onDeleteOrphaned={deleteOrphanedNotes}
         />
       </div>

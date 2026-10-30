@@ -85,7 +85,9 @@ reported, and “Start with agent” opens traceable work without duplicate exec
 ## 6. Notes and scoped configuration
 
 - Persist Markdown notes, pinning, search, and revisions; connect editor saves with
-  conflict handling and use note IDs in chat context.
+  conflict handling and use note IDs in chat context. Notes now persist per actor
+  (not per project) through `/notes`: the editor autosaves against the note's revision,
+  pins, searches titles and content, and deletes. Chat context does not use them yet.
 - Define actual project/agent settings rather than persisting the placeholder
   fields. Keep credentials in server configuration or a secret store and expose
   only non-secret settings/references.

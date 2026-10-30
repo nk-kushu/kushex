@@ -18,7 +18,7 @@ import { HttpServer } from "../../transport/http/HttpServer.js";
 import { LocalOperatorActorResolver } from "../../transport/http/LocalOperatorActorResolver.js";
 import { LocalRequestGuard } from "../../transport/http/LocalRequestGuard.js";
 import { RequestContextFactory } from "../../transport/http/RequestContextFactory.js";
-import { AgentService, KushibotTypesReader } from "../agents/public.js";
+import { AgentService, KushibotTypesReader, NodeTypesReader } from "../agents/public.js";
 import { ProjectService } from "../projects/public.js";
 import {
   LocalWorkspaceFileSystem,
@@ -97,7 +97,7 @@ beforeEach(async () => {
   service = new AgentRunService(
     workspaces,
     paths,
-    new AgentService(catalog, new KushibotTypesReader(null)),
+    new AgentService(catalog, new KushibotTypesReader(null), new NodeTypesReader()),
     new ChildProcessAgentLauncher(null, logger),
   );
   project = await new ProjectService(repository, workspaces).create(

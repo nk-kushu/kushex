@@ -103,5 +103,6 @@ export class AgentsController implements HttpController {
       reply.header("Cache-Control", "no-store");
       return this.agents.types();
     });
+    routes.get("/node/types", async () => this.agents.nodeTypes());
   }
 }

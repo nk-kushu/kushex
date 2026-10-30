@@ -10,6 +10,28 @@ import { ChangeReview } from "./ChangeReview";
 
 /** This preview decides presentation only; the server validates the persisted evidence. */
 export function codingResultPreview(value: unknown): { summary: string; count: number } | null {
+  if (
+    value &&
+    typeof value === "object" &&
+    "schemaVersion" in value &&
+    value.schemaVersion === 1 &&
+    "presentation" in value &&
+    value.presentation === "changes" &&
+    "message" in value &&
+    typeof value.message === "string" &&
+    "result" in value
+  ) {
+    const result = value.result;
+    if (
+      result &&
+      typeof result === "object" &&
+      "changedPaths" in result &&
+      Array.isArray(result.changedPaths) &&
+      result.changedPaths.length > 0
+    ) {
+      return { summary: value.message, count: result.changedPaths.length };
+    }
+  }
   if (!value || typeof value !== "object" || !("outcome" in value) || !("result" in value))
     return null;
   const outcome = value.outcome;

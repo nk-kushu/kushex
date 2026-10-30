@@ -1,6 +1,7 @@
 import { Button, Input, Popconfirm, Tooltip, Typography } from "antd";
-import { IconAlertTriangle, IconNote, IconSearch, IconTrash } from "@tabler/icons-react";
+import { IconAlertTriangle, IconNote, IconPlus, IconSearch, IconTrash } from "@tabler/icons-react";
 import { useState } from "react";
+import { AppIcon } from "../../../shared/components/AppIcon";
 import { borderT } from "../../../shared/lib/styles";
 import { FileTypeIcon } from "../fileIcons";
 import { lineLabel, noteTitle } from "./codeNotes";
@@ -16,18 +17,24 @@ const excerpt = (body: string) =>
     .replace(/\s+/g, " ")
     .trim();
 
-/** Every code note of the agent, by file; the open file's notes first. */
+/** Every note of the agent: the general ones, then by file with the open file's first. */
 export function NotesList({
   notes,
   activeFile,
   selectedId,
+  adding,
   onOpen,
+  onAdd,
   onDeleteOrphaned,
 }: Readonly<{
   notes: readonly PinnedNote[];
   activeFile: string;
   selectedId: string | null;
+  /** A new note is being written. */
+  adding: boolean;
   onOpen: (id: string) => void;
+  /** Starts a general note, one not tied to any code. */
+  onAdd: () => void;
   /** Deletes the notes whose file is gone. */
   onDeleteOrphaned: () => Promise<void>;
 }>) {
@@ -38,16 +45,24 @@ export function NotesList({
     ({ note }) =>
       !filter ||
       note.body.toLowerCase().includes(filter) ||
-      note.file.toLowerCase().includes(filter),
+      note.file?.toLowerCase().includes(filter),
   );
   const files = [...new Set(shown.map(({ note }) => note.file))].sort((a, b) =>
-    a === activeFile ? -1 : b === activeFile ? 1 : a.localeCompare(b),
+    a === null
+      ? -1
+      : b === null
+        ? 1
+        : a === activeFile
+          ? -1
+          : b === activeFile
+            ? 1
+            : a.localeCompare(b),
   );
 
   return (
     <div className="kx:flex kx:h-full kx:flex-col kx:bg-surface">
       {notes.length > 0 && (
-        <div className="kx:shrink-0 kx:px-2 kx:py-2">
+        <div className="kx:flex kx:shrink-0 kx:items-center kx:gap-1 kx:px-2 kx:py-2">
           <Input
             size="small"
             allowClear
@@ -62,6 +77,15 @@ export function NotesList({
               </span>
             }
           />
+          <Tooltip title="New note">
+            <Button
+              type="text"
+              size="small"
+              disabled={adding}
+              onClick={onAdd}
+              icon={<AppIcon icon={IconPlus} label="New note" />}
+            />
+          </Tooltip>
         </div>
       )}
       <div className="kx:min-h-0 kx:flex-1 kx:overflow-auto">
@@ -72,9 +96,18 @@ export function NotesList({
             </span>
             <Typography.Text strong>No notes yet</Typography.Text>
             <Typography.Text type="secondary" className="kx:text-xs">
-              Select code in the editor, then click <b>✎ Add note</b> or press {ADD_NOTE_KEYS}.
-              Notes are markdown and stay pinned to their code.
+              Write a general note, or select code in the editor, then click <b>✎ Add note</b> or
+              press {ADD_NOTE_KEYS}. Notes are markdown and stay pinned to their code.
             </Typography.Text>
+            <Button
+              size="small"
+              className="kx:mt-1"
+              disabled={adding}
+              onClick={onAdd}
+              icon={<IconPlus size={14} />}
+            >
+              New note
+            </Button>
           </div>
         ) : files.length === 0 ? (
           <Typography.Text
@@ -89,14 +122,22 @@ export function NotesList({
               .filter(({ note }) => note.file === file)
               .sort((a, b) => a.anchor.start - b.anchor.start);
             return (
-              <section key={file} aria-label={`Notes in ${file}`} className="kx:pb-1">
+              <section
+                key={file ?? "general"}
+                aria-label={file === null ? "General notes" : `Notes in ${file}`}
+                className="kx:pb-1"
+              >
                 <div className="kx:flex kx:items-center kx:gap-1.5 kx:px-3 kx:pt-2 kx:pb-1 kx:text-xs kx:text-text-muted">
-                  <FileTypeIcon path={file} size={14} />
+                  {file === null ? (
+                    <IconNote size={14} stroke={1.75} aria-hidden />
+                  ) : (
+                    <FileTypeIcon path={file} size={14} />
+                  )}
                   <span
                     className={`kx:min-w-0 kx:flex-1 kx:truncate ${file === activeFile ? "kx:font-medium kx:text-text" : ""}`}
-                    title={file}
+                    title={file ?? undefined}
                   >
-                    {file}
+                    {file ?? "General"}
                   </span>
                   <span>{inFile.length}</span>
                 </div>
@@ -134,18 +175,20 @@ export function NotesList({
                                 </span>
                               </Tooltip>
                             )}
-                            <span className="kx:shrink-0 kx:font-mono kx:text-[11px] kx:text-text-muted">
-                              {anchor.start === anchor.end
-                                ? `L${anchor.start}`
-                                : `L${anchor.start}–${anchor.end}`}
-                            </span>
+                            {file !== null && (
+                              <span className="kx:shrink-0 kx:font-mono kx:text-[11px] kx:text-text-muted">
+                                {anchor.start === anchor.end
+                                  ? `L${anchor.start}`
+                                  : `L${anchor.start}–${anchor.end}`}
+                              </span>
+                            )}
                           </span>
                           {rest && (
                             <span className="kx:truncate kx:text-xs kx:text-text-muted">
                               {rest}
                             </span>
                           )}
-                          <span className="kx:sr-only">{lineLabel(anchor)}</span>
+                          {file !== null && <span className="kx:sr-only">{lineLabel(anchor)}</span>}
                         </button>
                       </li>
                     );

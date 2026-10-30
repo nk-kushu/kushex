@@ -5,7 +5,12 @@ import { afterEach, expect, it } from "vitest";
 import { pino } from "pino";
 import { PluginCatalog } from "./PluginCatalog.js";
 import { PluginsController } from "./PluginsController.js";
-import { AgentService, AgentsController, KushibotTypesReader } from "../agents/public.js";
+import {
+  AgentService,
+  AgentsController,
+  KushibotTypesReader,
+  NodeTypesReader,
+} from "../agents/public.js";
 import { HttpServer } from "../../transport/http/HttpServer.js";
 import { ErrorResponder } from "../../transport/http/ErrorResponder.js";
 import { LocalRequestGuard } from "../../transport/http/LocalRequestGuard.js";
@@ -40,7 +45,9 @@ it("serves plugin metadata and source APIs without exposing resolved server path
     new ErrorResponder(logger),
     [
       new PluginsController(catalog),
-      new AgentsController(new AgentService(catalog, new KushibotTypesReader(null))),
+      new AgentsController(
+        new AgentService(catalog, new KushibotTypesReader(null), new NodeTypesReader()),
+      ),
     ],
     new LocalRequestGuard([]),
   );

@@ -1,31 +1,47 @@
-import { Alert, Button, Empty, Input, Select, Spin, Switch, Tag, Tooltip, Typography } from "antd";
-import { IconChevronRight } from "@tabler/icons-react";
-import type { AgentRunStatus, DebugEventDto, RecordedDebugEventDto } from "@kushex/contracts";
+import {
+  Alert,
+  Button,
+  Empty,
+  Input,
+  Segmented,
+  Select,
+  Spin,
+  Switch,
+  Tag,
+  Tooltip,
+  Typography,
+} from "antd";
+import type { AgentRunStatus } from "@kushex/contracts";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { AppIcon } from "../../shared/components/AppIcon";
-import { BackIcon, DebugEventsIcon, RefreshIcon, SearchIcon } from "../../shared/lib/icons";
-import { borderAll, borderB } from "../../shared/lib/styles";
-import { paths } from "../workbench/navigation";
 import {
-  LEVELS,
-  countByLevel,
-  eventTitle,
-  filterEvents,
-  formatDuration,
-  formatOffset,
-  spanPhase,
-  type DebugLevel,
-} from "./debugEventView";
+  BackIcon,
+  ContextIcon,
+  DebugEventsIcon,
+  EventListIcon,
+  RefreshIcon,
+  SearchIcon,
+  TraceIcon,
+} from "../../shared/lib/icons";
+import { borderB } from "../../shared/lib/styles";
+import { paths } from "../workbench/navigation";
+import { LEVELS, filterEvents, formatDuration, type DebugLevel } from "./debugEventView";
+import {
+  allSpanIds,
+  ancestorIds,
+  buildTrace,
+  defaultCollapsed,
+  formatCount,
+  matchingSpans,
+  traceStats,
+  type TraceStats,
+} from "./debugTrace";
+import { buildContextModel } from "./contextModel";
+import { ContextView } from "./ContextView";
+import { EventList } from "./EventList";
+import { TraceView } from "./TraceView";
 import { useRunDebugEvents } from "./useRunDebugEvents";
-
-const LEVEL_STYLES: Record<DebugLevel, string> = {
-  trace: "kx:bg-fill kx:text-text-muted",
-  debug: "kx:bg-fill kx:text-text-muted",
-  info: "kx:bg-primary/12 kx:text-primary",
-  warn: "kx:bg-warning/15 kx:text-warning",
-  error: "kx:bg-error/12 kx:text-error",
-};
 
 const STATUS_COLORS: Record<AgentRunStatus, string> = {
   starting: "processing",
@@ -36,39 +52,69 @@ const STATUS_COLORS: Record<AgentRunStatus, string> = {
   cancelled: "default",
 };
 
-const clock = new Intl.DateTimeFormat(undefined, {
-  hour: "2-digit",
-  minute: "2-digit",
-  second: "2-digit",
-  fractionalSecondDigits: 3,
-});
+type View = "trace" | "context" | "events";
+/** How the tree folds: the default (turns folded), all open or all closed, plus rows the user flipped. */
+type Folding = Readonly<{ base: "default" | "open" | "closed"; flipped: ReadonlySet<string> }>;
 
-/** Every kushibot debug event one chat run recorded, as a filterable timeline. */
+/**
+ * What kushibot did during one chat run. The trace shows the harness as a tree — agent run,
+ * workflow steps, executors, agentic mind units, turns, model and tool calls — and the event
+ * list shows every recorded event in order.
+ */
 export function DebugEventsScreen({
   projectId,
   runId,
 }: Readonly<{ projectId: string; runId: string }>) {
   const navigate = useNavigate();
   const { run, recording, events, loading, live, error, refresh } = useRunDebugEvents(runId);
-  const [minLevel, setMinLevel] = useState<DebugLevel>("trace");
+  const [view, setView] = useState<View>("trace");
   const [query, setQuery] = useState("");
+  const [minLevel, setMinLevel] = useState<DebugLevel>("trace");
   const [spans, setSpans] = useState(false);
   const [follow, setFollow] = useState(true);
+  const [folding, setFolding] = useState<Folding>({ base: "default", flipped: new Set() });
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedTurn, setSelectedTurn] = useState<string | null>(null);
+
+  const root = useMemo(() => buildTrace(events), [events]);
+  const stats = useMemo(() => traceStats(root, events), [root, events]);
+  const context = useMemo(() => buildContextModel(root, events), [root, events]);
+  const keep = useMemo(() => matchingSpans(root, query), [root, query]);
+  const collapsed = useMemo(() => {
+    const base =
+      folding.base === "default"
+        ? defaultCollapsed(root)
+        : folding.base === "closed"
+          ? allSpanIds(root)
+          : new Set<string>();
+    for (const id of folding.flipped) if (!base.delete(id)) base.add(id);
+    return base;
+  }, [root, folding]);
   const shown = useMemo(
     () => filterEvents(events, { minLevel, query, spans }),
     [events, minLevel, query, spans],
   );
-  const counts = useMemo(() => countByLevel(events), [events]);
   const first = events[0]?.event.occurredAtEpochMs ?? 0;
   const bottomRef = useRef<HTMLDivElement>(null);
+  // Until something is picked, the inspector shows the agent run.
+  const selected = selectedId ?? root.children[0]?.id ?? "root";
 
   useEffect(() => {
-    if (follow && live) bottomRef.current?.scrollIntoView?.({ block: "end" });
-  }, [follow, live, shown.length]);
+    if (view === "events" && follow && live) bottomRef.current?.scrollIntoView?.({ block: "end" });
+  }, [view, follow, live, shown.length]);
+
+  const toggle = (id: string) =>
+    setFolding(({ base, flipped }) => {
+      const next = new Set(flipped);
+      if (!next.delete(id)) next.add(id);
+      return { base, flipped: next };
+    });
 
   return (
     <div className="kx:flex kx:h-full kx:flex-col kx:bg-surface">
-      <header className={`kx:flex kx:shrink-0 kx:flex-col kx:gap-3 kx:px-4 kx:py-3 ${borderB}`}>
+      <header
+        className={`kx:flex kx:shrink-0 kx:flex-col kx:gap-3 kx:px-4 kx:pt-3 kx:pb-3 ${borderB}`}
+      >
         <div className="kx:flex kx:flex-wrap kx:items-center kx:gap-2">
           <Tooltip title="Back to files">
             <Button
@@ -80,7 +126,7 @@ export function DebugEventsScreen({
           </Tooltip>
           <AppIcon icon={DebugEventsIcon} />
           <Typography.Title level={5} className="kx:m-0">
-            Debug events
+            Run trace
           </Typography.Title>
           {run && (
             <>
@@ -111,14 +157,6 @@ export function DebugEventsScreen({
             )}
             <span aria-label="Event count">
               {events.length} {events.length === 1 ? "event" : "events"}
-              {counts.warn + counts.error > 0 && (
-                <>
-                  {" · "}
-                  <span className="kx:text-warning">{counts.warn} warn</span>
-                  {" · "}
-                  <span className="kx:text-error">{counts.error} error</span>
-                </>
-              )}
             </span>
             <Tooltip title="Fetch new events">
               <Button
@@ -130,51 +168,93 @@ export function DebugEventsScreen({
             </Tooltip>
           </div>
         </div>
+        {events.length > 0 && <StatsStrip stats={stats} />}
         <div className="kx:flex kx:flex-wrap kx:items-center kx:gap-3">
-          <Input
-            allowClear
+          <Segmented<View>
             size="small"
-            aria-label="Filter events"
-            placeholder="Filter by type, operation, summary, ref or id"
-            prefix={<AppIcon icon={SearchIcon} size="sm" />}
-            className="kx:max-w-80 kx:min-w-48 kx:flex-1"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
+            value={view}
+            onChange={setView}
+            options={[
+              { value: "trace", label: <ViewLabel icon={TraceIcon} text="Trace" /> },
+              { value: "context", label: <ViewLabel icon={ContextIcon} text="Context" /> },
+              { value: "events", label: <ViewLabel icon={EventListIcon} text="All events" /> },
+            ]}
           />
-          <Select
-            size="small"
-            aria-label="Lowest level"
-            value={minLevel}
-            onChange={setMinLevel}
-            className="kx:w-32"
-            options={LEVELS.map((level) => ({ value: level, label: `${level} and up` }))}
-          />
-          <span className="kx:inline-flex kx:items-center kx:gap-1.5 kx:text-xs kx:text-text-muted">
-            <Switch
+          {view !== "context" && (
+            <Input
+              allowClear
               size="small"
-              checked={spans}
-              onChange={setSpans}
-              aria-label="Show span starts"
+              aria-label="Filter"
+              placeholder={
+                view === "trace"
+                  ? "Find a step, executor, tool, model…"
+                  : "Filter by text, operation, ref or id"
+              }
+              prefix={<AppIcon icon={SearchIcon} size="sm" />}
+              className="kx:max-w-80 kx:min-w-48 kx:flex-1"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
             />
-            Span starts
-          </span>
-          <span className="kx:inline-flex kx:items-center kx:gap-1.5 kx:text-xs kx:text-text-muted">
-            <Switch size="small" checked={follow} onChange={setFollow} aria-label="Follow" />
-            Follow
-          </span>
+          )}
+          {view === "context" ? null : view === "trace" ? (
+            <span className="kx:flex kx:items-center kx:gap-1">
+              <Button
+                size="small"
+                type="text"
+                onClick={() => setFolding({ base: "open", flipped: new Set() })}
+              >
+                Expand all
+              </Button>
+              <Button
+                size="small"
+                type="text"
+                onClick={() => setFolding({ base: "default", flipped: new Set() })}
+              >
+                Fold turns
+              </Button>
+            </span>
+          ) : (
+            <>
+              <Select
+                size="small"
+                aria-label="Lowest level"
+                value={minLevel}
+                onChange={setMinLevel}
+                className="kx:w-32"
+                options={LEVELS.map((level) => ({ value: level, label: `${level} and up` }))}
+              />
+              <span className="kx:inline-flex kx:items-center kx:gap-1.5 kx:text-xs kx:text-text-muted">
+                <Switch
+                  size="small"
+                  checked={spans}
+                  onChange={setSpans}
+                  aria-label="Show span starts"
+                />
+                Span starts
+              </span>
+              <span className="kx:inline-flex kx:items-center kx:gap-1.5 kx:text-xs kx:text-text-muted">
+                <Switch size="small" checked={follow} onChange={setFollow} aria-label="Follow" />
+                Follow
+              </span>
+            </>
+          )}
         </div>
       </header>
-      <div className="kx:min-h-0 kx:flex-1 kx:overflow-auto kx:px-4 kx:py-3">
-        {error && <Alert className="kx:mb-3" type="error" showIcon title={error} />}
-        {!recording && (
-          <Alert
-            className="kx:mb-3"
-            type="info"
-            showIcon
-            title="Debug events are not recorded"
-            description="The server needs kushibot to record them: set KUSHEX_KUSHIBOT_DIR to a built kushibot checkout."
-          />
-        )}
+      {(error || !recording) && (
+        <div className="kx:px-4 kx:pt-3">
+          {error && <Alert className="kx:mb-3" type="error" showIcon title={error} />}
+          {!recording && (
+            <Alert
+              className="kx:mb-3"
+              type="info"
+              showIcon
+              title="Debug events are not recorded"
+              description="The server needs kushibot to record them: set KUSHEX_KUSHIBOT_DIR to a built kushibot checkout."
+            />
+          )}
+        </div>
+      )}
+      <div className="kx:min-h-0 kx:flex-1">
         {loading ? (
           <Spin className="kx:mt-12 kx:block" />
         ) : events.length === 0 ? (
@@ -186,150 +266,84 @@ export function DebugEventsScreen({
                 : "This run recorded no debug events. Agents record them by passing request.debug to kushibot's AgentRuntimeFactory as `debug`."
             }
           />
-        ) : shown.length === 0 ? (
-          <Empty className="kx:mt-12" description="No events match the filter." />
+        ) : view === "context" ? (
+          <ContextView
+            model={context}
+            selectedTurn={selectedTurn}
+            onSelectTurn={setSelectedTurn}
+            onOpenTrace={(spanId) => {
+              // Unfold the span's ancestors so the row is visible, then select it.
+              const folded = defaultCollapsed(root);
+              setQuery("");
+              setFolding({
+                base: "default",
+                flipped: new Set(ancestorIds(root, spanId).filter((id) => folded.has(id))),
+              });
+              setSelectedId(spanId);
+              setView("trace");
+            }}
+          />
+        ) : view === "trace" ? (
+          <TraceView
+            root={root}
+            collapsed={collapsed}
+            keep={keep}
+            selectedId={selected}
+            onToggle={toggle}
+            onSelect={setSelectedId}
+          />
         ) : (
-          <ol
-            aria-label="Debug events"
-            className="kx:m-0 kx:flex kx:list-none kx:flex-col kx:gap-1 kx:p-0"
-          >
-            {shown.map((item) => (
-              <EventRow
-                key={`${item.streamId}:${item.sequence}`}
-                item={item}
-                offset={item.event.occurredAtEpochMs - first}
-              />
-            ))}
-          </ol>
+          <div className="kx:h-full kx:overflow-auto kx:px-4 kx:py-3">
+            {shown.length === 0 ? (
+              <Empty className="kx:mt-12" description="No events match the filter." />
+            ) : (
+              <EventList events={shown} first={first} />
+            )}
+            <div ref={bottomRef} />
+          </div>
         )}
-        <div ref={bottomRef} />
       </div>
     </div>
   );
 }
 
-function EventRow({ item, offset }: Readonly<{ item: RecordedDebugEventDto; offset: number }>) {
-  const [open, setOpen] = useState(false);
-  const { event } = item;
-  const { payload } = event;
-  const phase = spanPhase(event);
+function ViewLabel({ icon, text }: Readonly<{ icon: typeof TraceIcon; text: string }>) {
   return (
-    <li
-      className={`kx:rounded-lg ${open ? `kx:bg-surface-muted ${borderAll}` : "kx:border kx:border-solid kx:border-transparent"}`}
-    >
-      <button
-        type="button"
-        aria-expanded={open}
-        onClick={() => setOpen(!open)}
-        className="kx:flex kx:w-full kx:cursor-pointer kx:items-start kx:gap-3 kx:rounded-lg kx:border-0 kx:bg-transparent kx:px-2 kx:py-1.5 kx:text-left kx:text-text kx:hover:bg-fill"
-      >
-        <span
-          className={`kx:mt-0.5 kx:inline-flex kx:shrink-0 kx:text-text-muted kx:transition-transform ${open ? "kx:rotate-90" : ""}`}
-        >
-          <AppIcon icon={IconChevronRight} size="sm" />
-        </span>
-        <Tooltip title={clock.format(event.occurredAtEpochMs)}>
-          <span className="kx:w-20 kx:shrink-0 kx:pt-px kx:font-mono kx:text-xs kx:text-text-muted kx:tabular-nums">
-            {formatOffset(offset)}
-          </span>
-        </Tooltip>
-        <span
-          className={`kx:w-12 kx:shrink-0 kx:rounded kx:px-1 kx:text-center kx:font-mono kx:text-[10px] kx:leading-5 kx:uppercase ${LEVEL_STYLES[event.level]}`}
-        >
-          {event.level}
-        </span>
-        <span className="kx:flex kx:min-w-0 kx:flex-1 kx:flex-col kx:gap-1">
-          <span className="kx:flex kx:flex-wrap kx:items-center kx:gap-x-2 kx:gap-y-1">
-            <span className="kx:font-mono kx:text-[13px] kx:font-semibold">
-              {phase === "start" ? "▸ " : ""}
-              {eventTitle(event)}
-            </span>
-            {event.payload.operation && (
-              <span className="kx:font-mono kx:text-xs kx:text-text-muted">{event.type}</span>
-            )}
-            {payload.durationMs !== undefined && (
-              <Tag bordered={false} className="kx:m-0 kx:font-mono kx:text-[11px]">
-                {formatDuration(payload.durationMs)}
-              </Tag>
-            )}
-            {payload.nextState && (
-              <Tag
-                bordered={false}
-                color={event.level === "warn" || event.level === "error" ? "warning" : "success"}
-                className="kx:m-0 kx:text-[11px]"
-              >
-                {payload.previousState ? `${payload.previousState} → ` : ""}
-                {payload.nextState}
-              </Tag>
-            )}
-            {payload.code && (
-              <Tag bordered={false} color="error" className="kx:m-0 kx:font-mono kx:text-[11px]">
-                {payload.code}
-              </Tag>
-            )}
-            {payload.count !== undefined && (
-              <span className="kx:text-xs kx:text-text-muted">count {payload.count}</span>
-            )}
-          </span>
-          {payload.summary && (
-            <span className="kx:text-sm kx:break-words kx:whitespace-pre-wrap">
-              {payload.summary}
-            </span>
-          )}
-          {payload.relatedRefs && payload.relatedRefs.length > 0 && (
-            <span className="kx:flex kx:flex-wrap kx:gap-1">
-              {payload.relatedRefs.map((ref) => (
-                <span
-                  key={ref}
-                  className="kx:rounded kx:bg-fill kx:px-1.5 kx:font-mono kx:text-[11px] kx:text-text-muted"
-                >
-                  {ref}
-                </span>
-              ))}
-            </span>
-          )}
-        </span>
-      </button>
-      {open && <EventDetails item={item} event={event} />}
-    </li>
+    <span className="kx:inline-flex kx:items-center kx:gap-1.5 kx:px-1">
+      <AppIcon icon={icon} size="sm" />
+      {text}
+    </span>
   );
 }
 
-function EventDetails({
-  item,
-  event,
-}: Readonly<{ item: RecordedDebugEventDto; event: DebugEventDto }>) {
-  const facts: readonly (readonly [string, string | number | null | undefined])[] = [
-    ["Stream", item.streamId],
-    ["Sequence", item.sequence],
-    ["Occurred", new Date(event.occurredAtEpochMs).toISOString()],
-    ["Recorded", new Date(item.recordedAtEpochMs).toISOString()],
-    ["Event", event.eventId],
-    ["Producer", event.producerId],
-    ["Span", event.trace.spanId],
-    ["Parent span", event.trace.parentSpanId],
-    ["Caused by", event.trace.causationEventId],
-    ["Trace", event.trace.traceId],
-    ["Operation", event.identity.operationId],
-    ["Step run", event.identity.stepRunId],
-    ["Session", event.identity.sessionId],
-    ["Scope", `${event.scope.scopeId} / ${event.scope.projectId}`],
+function StatsStrip({ stats }: Readonly<{ stats: TraceStats }>) {
+  const items: readonly (readonly [string, string, string?])[] = [
+    ["Duration", formatDuration(stats.durationMs)],
+    ["Steps", String(stats.steps)],
+    ["Turns", String(stats.turns)],
+    ["Model calls", String(stats.modelCalls), stats.models.join(", ") || undefined],
+    ["Tool calls", String(stats.toolCalls)],
+    ["Tokens", `${formatCount(stats.inputTokens)} in · ${formatCount(stats.outputTokens)} out`],
   ];
   return (
-    <div className="kx:flex kx:flex-col kx:gap-2 kx:px-3 kx:pt-1 kx:pb-3 kx:pl-9">
-      <dl className="kx:m-0 kx:grid kx:grid-cols-[max-content_1fr] kx:gap-x-4 kx:gap-y-0.5 kx:text-xs">
-        {facts
-          .filter(([, value]) => value !== undefined && value !== null)
-          .map(([label, value]) => (
-            <div key={label} className="kx:contents">
-              <dt className="kx:text-text-muted">{label}</dt>
-              <dd className="kx:m-0 kx:font-mono kx:break-all">{value}</dd>
-            </div>
-          ))}
-      </dl>
-      <pre className="kx:m-0 kx:max-h-72 kx:overflow-auto kx:rounded-md kx:bg-fill kx:p-2 kx:font-mono kx:text-xs">
-        {JSON.stringify(event, null, 2)}
-      </pre>
-    </div>
+    <dl aria-label="Run summary" className="kx:m-0 kx:flex kx:flex-wrap kx:gap-2">
+      {items.map(([label, value, hint]) => (
+        <Tooltip key={label} title={hint}>
+          <div className="kx:flex kx:min-w-24 kx:flex-col kx:rounded-lg kx:bg-fill kx:px-3 kx:py-1.5">
+            <dt className="kx:text-[11px] kx:text-text-muted">{label}</dt>
+            <dd className="kx:m-0 kx:text-sm kx:font-semibold kx:tabular-nums">{value}</dd>
+          </div>
+        </Tooltip>
+      ))}
+      {stats.warnings + stats.errors > 0 && (
+        <div className="kx:flex kx:min-w-24 kx:flex-col kx:rounded-lg kx:bg-warning/10 kx:px-3 kx:py-1.5">
+          <dt className="kx:text-[11px] kx:text-text-muted">Issues</dt>
+          <dd className="kx:m-0 kx:text-sm kx:font-semibold">
+            <span className="kx:text-warning">{stats.warnings} warn</span>
+            {stats.errors > 0 && <span className="kx:text-error"> · {stats.errors} error</span>}
+          </dd>
+        </div>
+      )}
+    </dl>
   );
 }

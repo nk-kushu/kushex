@@ -37,11 +37,15 @@ for DTOs, pagination, preview limits, containment, and Origin/Host configuration
 
 ## User settings
 
-`GET /settings` returns `{ "colorMode": "system", "density": "comfortable" }` by
-default when no settings have been saved. `PATCH /settings` accepts one or both
-fields: `colorMode` (`system`, `light`, `dark`) and `density` (`comfortable`,
-`compact`). It returns the complete settings. Empty bodies, unknown fields,
-nulls, and unsupported values are rejected with `400`.
+`GET /settings` returns
+`{ "colorMode": "system", "density": "comfortable", "editorFontSize": 13, "noteFontSize": 13, "splitterSizes": {} }`
+by default when no settings have been saved. `PATCH /settings` accepts any of
+those fields: `colorMode` (`system`, `light`, `dark`), `density` (`comfortable`,
+`compact`), `editorFontSize` (a whole number of pixels from 10 to 28, for every
+Monaco editor in the panel), `noteFontSize` (the same range, for the code notes
+of the agent editor), and `splitterSizes`. It returns the complete
+settings. Empty bodies, unknown fields, nulls, and unsupported values are
+rejected with `400`.
 
 Settings are stored in `kushex."UserSettings"`, keyed by the actor resolved from
 the request. The current single-operator deployment resolves all requests to
@@ -49,7 +53,7 @@ the request. The current single-operator deployment resolves all requests to
 updates use an atomic database upsert and preserve omitted settings. Both
 responses disable caching, and PATCH uses the existing Host/Origin/JSON guards.
 
-The panel loads settings on mount and saves appearance changes through this API.
+The panel loads settings on mount and saves appearance and editor changes through this API.
 Settings are shared across browsers and panel instance IDs for the same actor;
 existing browser-local preferences are not imported. Host-provided color mode
 remains a local override and is not persisted. Failed loads and saves have retry

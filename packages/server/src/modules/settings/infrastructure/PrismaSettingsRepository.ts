@@ -2,7 +2,7 @@ import type { SplitterSizesDto, UserSettingsDto, UpdateUserSettingsRequest } fro
 import type { PrismaClient } from "../../../generated/prisma/client.js";
 import type { SettingsRepository } from "../application/SettingsRepository.js";
 
-const select = { colorMode: true, density: true, splitterSizes: true } as const;
+const select = { colorMode: true, density: true, editorFontSize: true, noteFontSize: true, splitterSizes: true } as const;
 
 type Row = Omit<UserSettingsDto, "splitterSizes"> & { splitterSizes: unknown };
 

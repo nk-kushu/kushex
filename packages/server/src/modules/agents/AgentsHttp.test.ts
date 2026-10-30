@@ -1,4 +1,4 @@
-import type { AgentDto, AgentFileDto, LibraryTypesDto } from "@kushex/contracts";
+import type { AgentDto, AgentFileDto, LibraryTypesDto, NodeTypesDto } from "@kushex/contracts";
 import { mkdir, mkdtemp, readdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -7,7 +7,13 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { ErrorResponder } from "../../transport/http/ErrorResponder.js";
 import { HttpServer } from "../../transport/http/HttpServer.js";
 import { LocalRequestGuard } from "../../transport/http/LocalRequestGuard.js";
-import { AgentService, AgentsController, KushibotTypesReader, LocalAgentStore } from "./public.js";
+import {
+  AgentService,
+  AgentsController,
+  KushibotTypesReader,
+  LocalAgentStore,
+  NodeTypesReader,
+} from "./public.js";
 
 type TextFile = Extract<AgentFileDto, { kind: "text" }>;
 
@@ -28,6 +34,7 @@ async function start(kushibotDirectory: string | null) {
         new AgentService(
           new LocalAgentStore(agentsDirectory, { maxFileBytes: 4096, maxTotalBytes: 5000 }),
           new KushibotTypesReader(kushibotDirectory),
+          new NodeTypesReader(),
         ),
       ),
     ],
@@ -171,6 +178,15 @@ describe("agents HTTP API", () => {
     ).toBe(400);
   });
 
+  it("lists folders, including empty ones but not hidden ones", async () => {
+    await create("foldered");
+    const folder = path.join(agentsDirectory, "foldered");
+    await mkdir(path.join(folder, "memory", "compression"), { recursive: true });
+    await mkdir(path.join(folder, "workspace"));
+    await mkdir(path.join(folder, ".cache"));
+    expect((await find("foldered")).folders).toEqual(["memory", "memory/compression", "workspace"]);
+  });
+
   it("never follows symlinks, for agent folders, subfolders or files", async () => {
     await mkdir(path.join(root, "outside"));
     await writeFile(path.join(root, "outside", "agent.ts"), "secret");
@@ -192,6 +208,7 @@ describe("agents HTTP API", () => {
     await symlink(path.join(root, "outside"), path.join(folder, "lib"));
     await symlink(path.join(root, "outside", "agent.ts"), path.join(folder, "copy.ts"));
     expect((await find("empty")).files.map((file) => file.path)).toEqual(["agent.ts"]);
+    expect((await find("empty")).folders).toEqual([]);
     expect((await createFile("empty", "lib/new.ts")).status).toBe(409);
     expect((await createFile("empty", "copy.ts")).status).toBe(409);
     expect(
@@ -228,5 +245,14 @@ describe("agents HTTP API", () => {
     });
     await rm(path.join(kushibot, "dist"), { recursive: true });
     expect((await fetch(`${base}/kushibot/types`)).status).toBe(404);
+  });
+
+  it("serves Node declarations for the editor's TypeScript version", async () => {
+    const { packages } = (await (await fetch(`${base}/node/types`)).json()) as NodeTypesDto;
+    expect(packages.map((library) => library.packageName)).toEqual(["@types/node", "undici-types"]);
+    const paths = packages[0]!.files.map((file) => file.path);
+    expect(paths).toEqual(expect.arrayContaining(["index.d.ts", "child_process.d.ts"]));
+    expect(paths.some((file) => file.startsWith("ts5."))).toBe(false);
+    expect(packages[1]!.files.map((file) => file.path)).toContain("index.d.ts");
   });
 });

@@ -1,13 +1,20 @@
-import type { AgentDto, AgentFileDto, AgentSummaryDto, LibraryTypesDto } from "@kushex/contracts";
+import type {
+  AgentDto,
+  AgentFileDto,
+  AgentSummaryDto,
+  LibraryTypesDto,
+  NodeTypesDto,
+} from "@kushex/contracts";
 import { AgentFilePath } from "../domain/AgentFilePath.js";
 import { AgentName } from "../domain/AgentName.js";
 import type { AgentEntry, AgentStore } from "./AgentStore.js";
-import type { LibraryTypesSource } from "./LibraryTypesSource.js";
+import type { LibraryTypesSource, NodeTypesSource } from "./LibraryTypesSource.js";
 
 export class AgentService {
   constructor(
     private readonly agents: AgentStore,
     private readonly libraryTypes: LibraryTypesSource,
+    private readonly runtimeTypes: NodeTypesSource,
   ) {}
 
   list(): Promise<readonly AgentSummaryDto[]> {
@@ -47,5 +54,9 @@ export class AgentService {
 
   types(): Promise<LibraryTypesDto> {
     return this.libraryTypes.read();
+  }
+
+  nodeTypes(): Promise<NodeTypesDto> {
+    return this.runtimeTypes.read();
   }
 }

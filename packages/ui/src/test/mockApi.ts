@@ -8,6 +8,7 @@ import type {
   AgentRunEventDto,
   DebugVariableDto,
   FileContentDto,
+  NoteDto,
   ProjectDto,
   RecordedDebugEventDto,
   UserSettingsDto,
@@ -44,6 +45,7 @@ export const exampleAgent: AgentDto = {
     { path: "logo.png", kind: "binary", size: 4, updatedAt: "2026-10-25T00:00:00.000Z" },
     textFile("prompts/review.ts", 'export default "Review carefully.";\n', "b"),
   ],
+  folders: ["prompts", "workspace"],
 };
 
 /** An HTTP boundary fixture; the real RTK Query middleware still runs. */
@@ -60,6 +62,8 @@ export function mockKushexApi(
   const notes = new Map(
     Object.entries(initialNotes).map(([name, content]) => [name, { content, revision: 1 }]),
   );
+  /** Notes of the Notes page, as the database keeps them. */
+  const pageNotes: NoteDto[] = [];
   /** Bodies of started agent runs, in order. */
   const runs: Record<string, unknown>[] = [];
   const proposals: Record<string, CodingProposalReviewDto> = {};
@@ -86,6 +90,8 @@ export function mockKushexApi(
   let settings: UserSettingsDto = {
     colorMode: "system",
     density: "comfortable",
+    editorFontSize: 13,
+    noteFontSize: 13,
     splitterSizes: {},
   };
   const files: Record<string, FileContentDto> = {
@@ -123,6 +129,16 @@ export function mockKushexApi(
         version: "0.0.0",
         files: [{ path: "index.d.ts", content: "export declare const ok: true;" }],
       });
+    if (route === "/node/types")
+      return respond({
+        packages: [
+          {
+            packageName: "@types/node",
+            version: "0.0.0",
+            files: [{ path: "index.d.ts", content: 'declare module "node:fs" {}' }],
+          },
+        ],
+      });
     if (route === "/plugins") return respond({ entries: initialPlugins, nextOffset: null });
     if (route === "/agents")
       return respond({
@@ -137,6 +153,67 @@ export function mockKushexApi(
         ),
         nextOffset: null,
       });
+    const pageNoteRoute = /^\/notes(?:\/([^/]+))?$/.exec(route);
+    if (pageNoteRoute) {
+      const id = pageNoteRoute[1] && decodeURIComponent(pageNoteRoute[1]);
+      const title = (content: string) =>
+        content
+          .split("\n")
+          .map((line) => line.replace(/^\s*#+\s+/, "").trim())
+          .find(Boolean) ?? "Untitled";
+      const date = () => new Date(Date.now() + pageNotes.length).toISOString();
+      if (!id && request.method === "POST") {
+        const { content = "" } = (await request.json()) as { content?: string };
+        const note: NoteDto = {
+          id: `note-${pageNotes.length + 1}`,
+          title: title(content),
+          content,
+          pinned: false,
+          revision: 1,
+          createdAt: date(),
+          updatedAt: date(),
+        };
+        pageNotes.push(note);
+        return respond(note, 201);
+      }
+      if (!id) {
+        const query = (url.searchParams.get("query") ?? "").toLowerCase();
+        return respond(
+          pageNotes
+            .filter((note) => `${note.title}\n${note.content}`.toLowerCase().includes(query))
+            .sort(
+              (a, b) =>
+                Number(b.pinned) - Number(a.pinned) || b.updatedAt.localeCompare(a.updatedAt),
+            )
+            .map(({ id, title, pinned, updatedAt }) => ({ id, title, pinned, updatedAt })),
+        );
+      }
+      const index = pageNotes.findIndex((note) => note.id === id);
+      if (index < 0) return respond({ code: "NOT_FOUND", message: "Note not found." }, 404);
+      const stored = pageNotes[index]!;
+      if (request.method === "DELETE") {
+        pageNotes.splice(index, 1);
+        return new Response(null, { status: 204 });
+      }
+      if (request.method !== "PATCH") return respond(stored);
+      const body = (await request.json()) as {
+        pinned?: boolean;
+        content?: string;
+        baseRevision?: number;
+      };
+      if (body.content !== undefined && body.baseRevision !== stored.revision)
+        return respond({ code: "CONFLICT", message: "The note changed since it was loaded." }, 409);
+      const next: NoteDto = {
+        ...stored,
+        pinned: body.pinned ?? stored.pinned,
+        ...(body.content === undefined
+          ? {}
+          : { content: body.content, title: title(body.content), revision: stored.revision + 1 }),
+        updatedAt: date(),
+      };
+      pageNotes[index] = next;
+      return respond(next);
+    }
     const notesRoute = /^\/agents\/([^/]+)\/notes$/.exec(route);
     if (notesRoute) {
       const name = decodeURIComponent(notesRoute[1]!);
@@ -354,6 +431,7 @@ export function mockKushexApi(
     projects,
     agents,
     notes,
+    pageNotes,
     runs,
     proposals,
     proposalApplies,

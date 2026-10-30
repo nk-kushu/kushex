@@ -44,7 +44,7 @@ describe("Workbench", () => {
     expect(screen.getByRole("button", { name: "Start with agent" })).toBeInTheDocument();
 
     await user.click(within(activities).getByRole("button", { name: "Notes" }));
-    expect(screen.getByRole("textbox", { name: "Note text" })).toBeInTheDocument();
+    expect(await screen.findByText("Write notes as you learn kushibot")).toBeInTheDocument();
     expect(screen.getByRole("complementary", { name: "Chat" })).toBeInTheDocument();
 
     await user.click(within(activities).getByRole("button", { name: "Settings" }));
@@ -149,7 +149,7 @@ describe("Workbench routes", () => {
     expect(window.location.pathname).toBe("/kushex/projects");
 
     await user.click(within(screen.getByRole("navigation", { name: "Activities" })).getByRole("link", { name: "Notes" }));
-    expect(window.location.pathname).toBe("/kushex/notes/n1");
+    expect(window.location.pathname).toBe("/kushex/notes");
     window.history.replaceState(null, "", "/");
   });
 });
@@ -161,6 +161,6 @@ it("navigates through the handle and reports page changes to the host", async ()
   await waitFor(() => expect(onNavigate).toHaveBeenLastCalledWith("/projects"));
 
   act(() => ref.current!.navigate("/notes"));
-  expect(screen.getByRole("textbox", { name: "Note text" })).toBeInTheDocument();
-  await waitFor(() => expect(onNavigate).toHaveBeenLastCalledWith("/notes/n1"));
+  expect(await screen.findByText("Write notes as you learn kushibot")).toBeInTheDocument();
+  await waitFor(() => expect(onNavigate).toHaveBeenLastCalledWith("/notes"));
 });

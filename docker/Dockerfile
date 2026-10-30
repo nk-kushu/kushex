@@ -2,7 +2,7 @@
 FROM node:24-bookworm-slim AS node-codex
 # Codex's native HTTP client needs the system trust store for ChatGPT TLS.
 RUN apt-get update \
-    && apt-get install --yes --no-install-recommends ca-certificates \
+    && apt-get install --yes --no-install-recommends ca-certificates bubblewrap ripgrep \
     && rm -rf /var/lib/apt/lists/*
 RUN npm install --global @openai/codex@0.162.1
 

@@ -30,6 +30,10 @@ export type SplitterSizesDto = Readonly<Record<string, readonly number[]>>;
 export type UserSettingsDto = Readonly<{
   colorMode: "system" | "light" | "dark";
   density: "comfortable" | "compact";
+  /** Pixels, for every Monaco editor in the panel. */
+  editorFontSize: number;
+  /** Pixels, for the code notes of the agent editor. */
+  noteFontSize: number;
   splitterSizes: SplitterSizesDto;
 }>;
 /** `splitterSizes` merges by splitter id: ids left out keep their saved sizes. */
@@ -83,6 +87,8 @@ export type AgentDto = Readonly<{
   primaryFile: string;
   updatedAt: string;
   files: readonly AgentFileDto[];
+  /** Every folder below the agent folder, including empty ones; paths use `/`. */
+  folders: readonly string[];
 }> &
   AgentPluginMetadata;
 /** Folder-relative path; segments use letters, digits, `.`, `_` and `-` and cannot start with a dot. */
@@ -100,12 +106,36 @@ export type UpdateAgentFileRequest = Readonly<{
 export type AgentCodeNotesDto = Readonly<{ content: string; revision: number }>;
 export type UpdateAgentCodeNotesRequest = Readonly<{ content: string; baseRevision: number }>;
 
+/**
+ * A markdown note of the Notes page. The title is the note's first line, without heading
+ * marks. `revision` is bumped on every content save; a content save must name the revision it
+ * was based on.
+ */
+export type NoteSummaryDto = Readonly<{
+  id: string;
+  title: string;
+  pinned: boolean;
+  updatedAt: string;
+}>;
+export type NoteDto = NoteSummaryDto &
+  Readonly<{ content: string; revision: number; createdAt: string }>;
+export type CreateNoteRequest = Readonly<{ content?: string }>;
+/** Pinning is independent of content saves and needs no revision. */
+export type UpdateNoteRequest = Readonly<
+  { pinned?: boolean } & ({ content: string; baseRevision: number } | { content?: undefined })
+>;
+
 /** Declaration files of the kushibot library, for editor type checking. */
 export type LibraryTypesDto = Readonly<{
   packageName: string;
   version: string | null;
   /** Paths relative to the package's declaration root, e.g. `index.d.ts`. */
   files: readonly Readonly<{ path: string; content: string }>[];
+}>;
+
+/** Declaration packages of the Node.js API, for editor type checking. */
+export type NodeTypesDto = Readonly<{
+  packages: readonly LibraryTypesDto[];
 }>;
 
 /**
@@ -264,6 +294,8 @@ export type DebugEventDto = Readonly<{
     previousState?: string;
     nextState?: string;
     relatedRefs?: readonly string[];
+    /** Named measurements: sizes in bytes, counts and token estimates. */
+    metrics?: Readonly<Record<string, number>>;
   }>;
 }>;
 /** A debug event stored in PostgreSQL: its position in its kushibot stream (`run:<id>`). */

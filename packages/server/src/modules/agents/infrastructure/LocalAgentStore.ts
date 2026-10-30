@@ -17,9 +17,11 @@ type Limits = Readonly<{
   maxFileBytes: number;
   /** Text content returned for one agent; files past the budget come back as too large. */
   maxTotalBytes: number;
-  /** Files listed for one agent; further files are left out. */
+  /** Files, and separately folders, listed for one agent; further ones are left out. */
   maxFiles: number;
 }>;
+/** What a walk of an agent folder found. */
+type Listing = { readonly files: AgentFilePath[]; readonly folders: string[] };
 
 /**
  * Stores each agent as a folder `<directory>/<name>/` whose primary file, `agent.ts`,
@@ -72,7 +74,8 @@ export class LocalAgentStore implements AgentStore {
     if (!primary) throw new NotFoundError(`Agent "${name}" not found.`);
     const files: AgentFileDto[] = [];
     let budget = this.limits.maxTotalBytes;
-    for (const file of await this.walk(this.folderPath(name), [])) {
+    const listing = await this.walk(this.folderPath(name), []);
+    for (const file of listing.files) {
       const read = await this.read(name, file, budget);
       if (!read) continue;
       if (read.kind === "text") budget -= read.size;
@@ -83,6 +86,7 @@ export class LocalAgentStore implements AgentStore {
       primaryFile: this.primaryFile.value,
       updatedAt: primary.mtime.toISOString(),
       files: files.sort((a, b) => a.path.localeCompare(b.path)),
+      folders: listing.folders.sort((a, b) => a.localeCompare(b)),
     };
   }
 
@@ -153,20 +157,25 @@ export class LocalAgentStore implements AgentStore {
     return close;
   }
 
-  /** Paths of the regular files below `folder`, skipping links, hidden and unaddressable names. */
-  private async walk(folder: string, parents: readonly string[]): Promise<AgentFilePath[]> {
-    const files: AgentFilePath[] = [];
+  /** Regular files and real folders below `folder`, skipping links, hidden and unaddressable names. */
+  private async walk(
+    folder: string,
+    parents: readonly string[],
+    listing: Listing = { files: [], folders: [] },
+  ): Promise<Listing> {
     const entries = await readdir(folder, { withFileTypes: true });
     entries.sort((a, b) => a.name.localeCompare(b.name));
     for (const entry of entries) {
-      if (files.length >= this.limits.maxFiles) break;
+      if (listing.files.length >= this.limits.maxFiles) break;
       if (!AgentFilePath.isValidSegment(entry.name)) continue;
       const segments = [...parents, entry.name];
-      if (entry.isFile()) files.push(new AgentFilePath(segments.join("/")));
-      else if (entry.isDirectory() && segments.length < AgentFilePath.maxDepth)
-        files.push(...(await this.walk(path.join(folder, entry.name), segments)));
+      if (entry.isFile()) listing.files.push(new AgentFilePath(segments.join("/")));
+      else if (entry.isDirectory() && segments.length < AgentFilePath.maxDepth) {
+        if (listing.folders.length < this.limits.maxFiles) listing.folders.push(segments.join("/"));
+        await this.walk(path.join(folder, entry.name), segments, listing);
+      }
     }
-    return files.slice(0, this.limits.maxFiles);
+    return listing;
   }
 
   /** The file as stored, or null when it is missing, a link or not a regular file. */

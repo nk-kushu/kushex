@@ -1,0 +1,1 @@
+ALTER TABLE "kushex"."UserSettings" ADD COLUMN "noteFontSize" INTEGER NOT NULL DEFAULT 13;

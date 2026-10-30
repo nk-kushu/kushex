@@ -3,6 +3,8 @@ import { createListenerMiddleware, isAnyOf, type TypedStartListening } from "@re
 import {
   colorModeChanged,
   densityChanged,
+  editorFontSizeChanged,
+  noteFontSizeChanged,
   splitterSizesChanged,
   settingsRequested,
   settingsSaveRetried,
@@ -42,6 +44,8 @@ export function createListeners(options: StoreOptions = {}) {
           settingsLoaded({
             ...(!edited.has("colorMode") ? { colorMode: settings.colorMode } : {}),
             ...(!edited.has("density") ? { density: settings.density } : {}),
+            ...(!edited.has("editorFontSize") ? { editorFontSize: settings.editorFontSize } : {}),
+            ...(!edited.has("noteFontSize") ? { noteFontSize: settings.noteFontSize } : {}),
             // Splitters moved before the load finished keep their local sizes.
             splitterSizes: { ...settings.splitterSizes, ...api.getState().settings.splitterSizes },
           }),
@@ -56,21 +60,36 @@ export function createListeners(options: StoreOptions = {}) {
   });
 
   startListening({
-    matcher: isAnyOf(colorModeChanged, densityChanged, splitterSizesChanged, settingsSaveRetried),
+    matcher: isAnyOf(
+      colorModeChanged,
+      densityChanged,
+      editorFontSizeChanged,
+      noteFontSizeChanged,
+      splitterSizesChanged,
+      settingsSaveRetried,
+    ),
     effect: (action, api) => {
       const state = api.getState().settings;
       const patch: UpdateUserSettingsRequest = colorModeChanged.match(action)
         ? { colorMode: action.payload }
         : densityChanged.match(action)
           ? { density: action.payload }
-          : splitterSizesChanged.match(action)
-            ? { splitterSizes: { [action.payload.id]: action.payload.sizes } }
-            : {
-                ...(failed.has("colorMode") ? { colorMode: state.colorMode } : {}),
-                ...(failed.has("density") ? { density: state.density } : {}),
-                // The server merges by id, so resending every splitter is safe.
-                ...(failed.has("splitterSizes") ? { splitterSizes: state.splitterSizes } : {}),
-              };
+          : editorFontSizeChanged.match(action)
+            ? { editorFontSize: action.payload }
+            : noteFontSizeChanged.match(action)
+              ? { noteFontSize: action.payload }
+              : splitterSizesChanged.match(action)
+                ? { splitterSizes: { [action.payload.id]: action.payload.sizes } }
+                : {
+                    ...(failed.has("colorMode") ? { colorMode: state.colorMode } : {}),
+                    ...(failed.has("density") ? { density: state.density } : {}),
+                    ...(failed.has("editorFontSize")
+                      ? { editorFontSize: state.editorFontSize }
+                      : {}),
+                    ...(failed.has("noteFontSize") ? { noteFontSize: state.noteFontSize } : {}),
+                    // The server merges by id, so resending every splitter is safe.
+                    ...(failed.has("splitterSizes") ? { splitterSizes: state.splitterSizes } : {}),
+                  };
       const fields = Object.keys(patch) as (keyof UserSettingsDto)[];
       if (!fields.length) return;
       fields.forEach((field) => edited.add(field));

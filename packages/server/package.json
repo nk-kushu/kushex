@@ -35,10 +35,10 @@
     "@kushex/contracts": "workspace:*",
     "tsx": "^4.23.15",
     "pg": "^8.23.0",
-    "kushibot": "file:../../../kushibot"
+    "kushibot": "file:../../../kushibot",
+    "@types/node": "^26.6.5"
   },
   "devDependencies": {
-    "@types/node": "^26.6.5",
     "@types/pg": "^8.23.0",
     "typescript": "~5.9.3",
     "vitest": "^5.0.5"

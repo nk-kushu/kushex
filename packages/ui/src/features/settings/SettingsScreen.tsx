@@ -1,19 +1,24 @@
-import { Alert, Button, Form, Input, Menu, Radio, Typography } from "antd";
+import { Alert, Button, Form, Input, InputNumber, Menu, Radio, Typography } from "antd";
 import { useState } from "react";
 import { useAppDispatch, useAppSelector } from "../../app/hooks";
 import { borderR } from "../../shared/lib/styles";
 import {
   colorModeChanged,
   densityChanged,
+  editorFontSizeChanged,
+  FONT_SIZE_RANGE,
+  noteFontSizeChanged,
   selectColorMode,
   selectDensity,
+  selectEditorFontSize,
+  selectNoteFontSize,
   type ColorMode,
   type Density,
   settingsRequested,
   settingsSaveRetried,
 } from "./settingsSlice";
 
-const sections = ["General", "Appearance", "Project", "Agent"] as const;
+const sections = ["General", "Appearance", "Editor", "Project", "Agent"] as const;
 type Section = (typeof sections)[number];
 
 function AppearanceFields() {
@@ -43,6 +48,48 @@ function AppearanceFields() {
             { label: "Comfortable", value: "comfortable" },
             { label: "Compact", value: "compact" },
           ]}
+        />
+      </Form.Item>
+    </>
+  );
+}
+
+function EditorFields() {
+  const dispatch = useAppDispatch();
+  const editorFontSize = useAppSelector(selectEditorFontSize);
+  const noteFontSize = useAppSelector(selectNoteFontSize);
+  return (
+    <>
+      <Form.Item
+        label="Font size"
+        htmlFor="editor-font-size"
+        extra="Applies to every code editor and diff view in the panel."
+      >
+        <InputNumber
+          id="editor-font-size"
+          {...FONT_SIZE_RANGE}
+          precision={0}
+          suffix="px"
+          value={editorFontSize}
+          onChange={(size) => {
+            if (size !== null) dispatch(editorFontSizeChanged(size));
+          }}
+        />
+      </Form.Item>
+      <Form.Item
+        label="Note font size"
+        htmlFor="note-font-size"
+        extra="Applies to the text of code notes in the agent editor."
+      >
+        <InputNumber
+          id="note-font-size"
+          {...FONT_SIZE_RANGE}
+          precision={0}
+          suffix="px"
+          value={noteFontSize}
+          onChange={(size) => {
+            if (size !== null) dispatch(noteFontSizeChanged(size));
+          }}
         />
       </Form.Item>
     </>
@@ -84,6 +131,8 @@ export function SettingsScreen() {
           <Form layout="vertical" className="kx:max-w-md">
             {section === "Appearance" ? (
               <AppearanceFields />
+            ) : section === "Editor" ? (
+              <EditorFields />
             ) : (
               <>
                 <Form.Item label="Field">

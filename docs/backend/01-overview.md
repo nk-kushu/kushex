@@ -28,7 +28,7 @@ application integration is still to be built.
 | `features/files/FilesSide.tsx` and `FilesMain.tsx` | Static file tree and placeholder editor | Authorized project tree and file reads; mapping to isolated editing workspaces |
 | `features/files/DiffView.tsx` | Hardcoded before/after with Accept and Reject buttons | Kushibot proposal projections and trusted review/publication integration |
 | `features/files/BottomPanel.tsx` | Static Problems and Output tabs | Views of runtime output, diagnostics, and verification evidence |
-| `features/notes/NotesSide.tsx` and `NotesMain.tsx` | Hardcoded notes, local search and draft text | Persistent Markdown notes, pinning, search, and versioned saves |
+| `features/notes/NotesSide.tsx` and `NotesMain.tsx` | Persistent per-actor Markdown notes with autosave, pinning, and search through `/notes` | Use note IDs as chat context |
 | `features/settings/SettingsScreen.tsx` | Working appearance controls; placeholder General, Project, Agent fields | Appearance preferences persist per actor through `GET/PATCH /settings`; host and framework configuration remain separate |
 | `features/workbench/workbenchSlice.ts` | Activity, project name, file/diff tabs, and mobile region | Stable project/workspace IDs; layout state remains in the browser |
 | `features/workbench/StatusBar.tsx` | Hardcoded connection, branch, agent, and cursor text | Actual connection, workspace, and runtime state; cursor position stays local |

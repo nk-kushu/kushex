@@ -1,6 +1,7 @@
 import {
   colorModeChanged,
   densityChanged,
+  editorFontSizeChanged,
   initialSettings,
   settingsSlice,
   toThemeMode,
@@ -12,7 +13,8 @@ describe("settingsSlice", () => {
     expect(state).toEqual(initialSettings);
     state = settingsSlice.reducer(state, colorModeChanged("dark"));
     state = settingsSlice.reducer(state, densityChanged("compact"));
-    expect(state).toMatchObject({ colorMode: "dark", density: "compact" });
+    state = settingsSlice.reducer(state, editorFontSizeChanged(18));
+    expect(state).toMatchObject({ colorMode: "dark", density: "compact", editorFontSize: 18 });
   });
 
   it("maps system to antd-style auto", () => {

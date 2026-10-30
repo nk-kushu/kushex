@@ -250,3 +250,40 @@
   border: 0;
   border-top: 1px solid var(--kx-ant-color-border);
 }
+.kx-markdown pre {
+  border-radius: 6px;
+}
+.kx-markdown code {
+  border-radius: 4px;
+}
+.kx-markdown img {
+  max-width: 100%;
+}
+.kx-markdown-table {
+  max-width: 100%;
+  margin: 0 0 0.75em;
+  overflow-x: auto;
+}
+.kx-markdown-table > table {
+  margin: 0;
+}
+.kx-markdown th {
+  font-weight: 600;
+  background: var(--kx-ant-color-fill-tertiary);
+}
+/* Markdown on a primary-colored bubble: everything follows the bubble's white text. */
+.kx-markdown-inverted {
+  color: inherit;
+}
+.kx-markdown-inverted :where(a, blockquote) {
+  color: inherit;
+}
+.kx-markdown-inverted a {
+  text-decoration: underline;
+}
+.kx-markdown-inverted :where(code, pre, th) {
+  background: rgb(255 255 255 / 0.2);
+}
+.kx-markdown-inverted :where(blockquote, th, td, hr) {
+  border-color: rgb(255 255 255 / 0.45);
+}

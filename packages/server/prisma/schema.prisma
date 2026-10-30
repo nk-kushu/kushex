@@ -86,6 +86,10 @@ model UserSettings {
   actorId   String    @id
   colorMode ColorMode @default(system)
   density   Density   @default(comfortable)
+  /// Pixels, for every Monaco editor in the panel.
+  editorFontSize Int  @default(13)
+  /// Pixels, for the code notes of the agent editor.
+  noteFontSize Int    @default(13)
   /// Splitter id → panel fractions; PATCH merges by id.
   splitterSizes Json  @default("{}")
   updatedAt DateTime  @updatedAt
@@ -121,5 +125,21 @@ model AgentRunDebugStream {
 
   @@id([scopeId, scopeProjectId, streamId])
   @@index([runId, createdAt])
+  @@schema("kushex")
+}
+
+// A markdown note of the Notes page. `title` is derived from the content's first line.
+model Note {
+  id        String   @id @default(uuid()) @db.Uuid
+  actorId   String
+  title     String   @db.VarChar(200)
+  content   String
+  pinned    Boolean  @default(false)
+  /// Bumped on every content save; a save must name the revision it was based on.
+  revision  Int      @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([actorId, pinned, updatedAt])
   @@schema("kushex")
 }

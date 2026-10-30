@@ -2,6 +2,7 @@ import Editor, { type BeforeMount, type OnChange, type OnMount } from "@monaco-e
 import { Spin } from "antd";
 import { useThemeMode } from "antd-style";
 import type { editor } from "monaco-editor";
+import { useEditorFontSize } from "../lib/editorFontSize";
 
 const LANGUAGE_BY_EXTENSION: Record<string, string> = {
   ts: "typescript",
@@ -66,6 +67,7 @@ export function CodeEditor({
   className = "kx:min-h-0 kx:flex-1 kx:overflow-hidden",
 }: CodeEditorProps) {
   const { isDarkMode } = useThemeMode();
+  const fontSize = useEditorFontSize();
   const handleChange: OnChange = (next) => onChange?.(next ?? "");
   return (
     <div className={className}>
@@ -87,7 +89,7 @@ export function CodeEditor({
           automaticLayout: true,
           minimap: { enabled: false },
           scrollBeyondLastLine: false,
-          fontSize: 13,
+          fontSize,
           ...options,
         }}
       />

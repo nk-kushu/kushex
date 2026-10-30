@@ -4,6 +4,7 @@ import { vi } from "vitest";
 import {
   colorModeChanged,
   densityChanged,
+  editorFontSizeChanged,
   settingsRequested,
   settingsSaveRetried,
   splitterSizesChanged,
@@ -62,8 +63,59 @@ describe("backend preferences", () => {
     await waitFor(() => expect(patches).toEqual([{ colorMode: "light" }]));
   });
 
+  it("loads and saves the editor font size, keeping a size chosen during the load", async () => {
+    const load = deferred<Response>();
+    const patches: UpdateUserSettingsRequest[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (request: Request) => {
+        if (request.method === "GET") return load.promise;
+        patches.push((await request.json()) as UpdateUserSettingsRequest);
+        return response({});
+      }),
+    );
+    const store = makeStore({});
+    store.dispatch(settingsRequested());
+    store.dispatch(editorFontSizeChanged(20));
+    load.resolve(response({ colorMode: "dark", density: "compact", editorFontSize: 16, noteFontSize: 13 }));
+    await waitFor(() => expect(store.getState().settings.colorMode).toBe("dark"));
+    expect(store.getState().settings.editorFontSize).toBe(20);
+    await waitFor(() => expect(patches).toEqual([{ editorFontSize: 20 }]));
+
+    const untouched = makeStore({});
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => response({ colorMode: "dark", density: "compact", editorFontSize: 16, noteFontSize: 13 })),
+    );
+    untouched.dispatch(settingsRequested());
+    await waitFor(() => expect(untouched.getState().settings.editorFontSize).toBe(16));
+  });
+
+  it("retries a failed editor font size save", async () => {
+    const patches: UpdateUserSettingsRequest[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (request: Request) => {
+        patches.push((await request.json()) as UpdateUserSettingsRequest);
+        return patches.length === 1 ? response({}, 500) : response({});
+      }),
+    );
+    const store = makeStore({});
+    store.dispatch(editorFontSizeChanged(18));
+    await waitFor(() => expect(store.getState().settings.saveError).toBe(true));
+    store.dispatch(settingsSaveRetried());
+    await waitFor(() => expect(store.getState().settings.saveError).toBe(false));
+    expect(patches).toEqual([{ editorFontSize: 18 }, { editorFontSize: 18 }]);
+  });
+
   it("saves partial edits in order, then a new panel loads the saved settings", async () => {
-    let saved: UserSettingsDto = { colorMode: "system", density: "comfortable", splitterSizes: {} };
+    let saved: UserSettingsDto = {
+      colorMode: "system",
+      density: "comfortable",
+      editorFontSize: 13,
+      noteFontSize: 13,
+      splitterSizes: {},
+    };
     const first = deferred<void>();
     const patches: UpdateUserSettingsRequest[] = [];
     vi.stubGlobal(
@@ -84,7 +136,13 @@ describe("backend preferences", () => {
     await waitFor(() => expect(patches).toEqual([{ colorMode: "dark" }]));
     first.resolve();
     await waitFor(() =>
-      expect(saved).toEqual({ colorMode: "light", density: "compact", splitterSizes: {} }),
+      expect(saved).toEqual({
+        colorMode: "light",
+        density: "compact",
+        editorFontSize: 13,
+        noteFontSize: 13,
+        splitterSizes: {},
+      }),
     );
     expect(patches).toEqual([
       { colorMode: "dark" },
@@ -105,7 +163,7 @@ describe("backend preferences", () => {
         if (!available) return response({ message: "Unavailable" }, 503);
         if (request.method === "PATCH")
           patches.push((await request.json()) as UpdateUserSettingsRequest);
-        return response({ colorMode: "system", density: "comfortable" });
+        return response({ colorMode: "system", density: "comfortable", editorFontSize: 13, noteFontSize: 13 });
       }),
     );
     const store = makeStore({});
@@ -121,6 +179,8 @@ describe("backend preferences", () => {
       expect(store.getState().settings).toEqual({
         colorMode: "dark",
         density: "comfortable",
+        editorFontSize: 13,
+        noteFontSize: 13,
         splitterSizes: {},
         loadError: false,
         saveError: false,
@@ -139,7 +199,13 @@ describe("backend preferences", () => {
         if (request.method === "GET") return load.promise;
         patches.push((await request.json()) as UpdateUserSettingsRequest);
         if (!available) return response({ message: "Unavailable" }, 503);
-        return response({ colorMode: "system", density: "comfortable", splitterSizes: {} });
+        return response({
+          colorMode: "system",
+          density: "comfortable",
+          editorFontSize: 13,
+          noteFontSize: 13,
+          splitterSizes: {},
+        });
       }),
     );
     const store = makeStore({});
@@ -149,6 +215,8 @@ describe("backend preferences", () => {
       response({
         colorMode: "system",
         density: "comfortable",
+        editorFontSize: 13,
+        noteFontSize: 13,
         splitterSizes: { files: [0.8, 0.2], notes: [0.3, 0.7] },
       }),
     );

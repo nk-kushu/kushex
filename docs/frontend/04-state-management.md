@@ -237,7 +237,7 @@ export const runsSlice = createSlice({
 
 - Name actions as events (`searchChanged`, `stepSelected`), not setters.
 - Derived data uses `createSelector`; never store derived values.
-- Persist color mode and density through the backend settings API. A per-store
+- Persist color mode, density and editor font size through the backend settings API. A per-store
   listener loads `GET /settings` and serializes partial `PATCH /settings` updates.
   Startup loading preserves edits made while the request is in flight. Settings
   are scoped to the backend actor; host color mode overrides remain local.

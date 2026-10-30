@@ -51,6 +51,7 @@ import { frameLabel } from "../runs/frameLabel";
 import { paths } from "../workbench/navigation";
 import { PaneHeader } from "../workbench/PaneHeader";
 import { selectProjectId } from "../workbench/workbenchSlice";
+import { Markdown } from "../../shared/components/Markdown";
 import { AttachFilesDialog } from "./AttachFilesDialog";
 import { CodingChangeReview, codingResultPreview } from "./CodingChangeReview";
 
@@ -404,7 +405,7 @@ function Entry({ entry }: Readonly<{ entry: ChatEntry }>) {
       return (
         <div className="kx:flex kx:justify-end kx:pl-8">
           <div className="kx:flex kx:max-w-full kx:flex-col kx:gap-1.5 kx:rounded-2xl kx:rounded-br-md kx:bg-primary kx:px-3.5 kx:py-2 kx:text-white kx:shadow-sm">
-            <span className="kx:break-words kx:whitespace-pre-wrap">{entry.text}</span>
+            <Markdown text={entry.text} inverted breaks className="kx:break-words" />
             {entry.files.length > 0 && (
               <div className="kx:flex kx:flex-wrap kx:gap-1">
                 {entry.files.map((file) => (
@@ -631,24 +632,56 @@ function RunMessage({ runId }: Readonly<{ runId: string }>) {
   );
 }
 
-/** Text answers read as text; anything else is shown as JSON. */
+/** The answer to show as the agent's reply, and the points it left open. */
+function resultAnswer(
+  value: unknown,
+): Readonly<{ text: string; unresolved: readonly string[] }> | null {
+  if (typeof value === "string") return value.trim() ? { text: value, unresolved: [] } : null;
+  if (!value || typeof value !== "object") return null;
+  if (
+    "schemaVersion" in value &&
+    value.schemaVersion === 1 &&
+    "message" in value &&
+    typeof value.message === "string"
+  ) {
+    const unresolved =
+      "unresolved" in value && Array.isArray(value.unresolved)
+        ? value.unresolved.filter((item): item is string => typeof item === "string")
+        : [];
+    return value.message.trim() ? { text: value.message, unresolved } : null;
+  }
+  // kushibot agent runs return { runId, result, outcome }: the reply is in `result`.
+  const result = "result" in value ? value.result : value;
+  if (typeof result === "string") return result.trim() ? { text: result, unresolved: [] } : null;
+  if (!result || typeof result !== "object") return null;
+  const record = result as Record<string, unknown>;
+  const text = ["answer", "summary", "message", "text"]
+    .map((key) => record[key])
+    .find((item): item is string => typeof item === "string" && item.trim().length > 0);
+  if (!text) return null;
+  const unresolved = Array.isArray(record.unresolved)
+    ? record.unresolved.filter((item): item is string => typeof item === "string")
+    : [];
+  return { text, unresolved };
+}
+
+/** The agent's answer as a chat reply; the full result stays one click away. */
 function ResultView({ value, truncated }: Readonly<{ value: unknown; truncated: boolean }>) {
-  if (typeof value === "string" && !truncated)
-    return (
-      <div className="kx:w-fit kx:max-w-full kx:rounded-2xl kx:rounded-tl-md kx:bg-fill kx:px-3.5 kx:py-2.5 kx:leading-relaxed kx:break-words kx:whitespace-pre-wrap">
-        {value}
-      </div>
-    );
+  const answer = truncated ? null : resultAnswer(value);
   const json = truncated ? String(value) : JSON.stringify(value, null, 2);
-  return (
+  const raw = (
     <Collapse
       size="small"
       className="kx:overflow-hidden kx:rounded-xl"
-      defaultActiveKey={json.length < 2000 ? ["result"] : []}
+      defaultActiveKey={!answer && json.length < 2000 ? ["result"] : []}
       items={[
         {
           key: "result",
-          label: truncated ? "Result (cut: too large to show in full)" : "Result",
+          label: truncated
+            ? "Result (cut: too large to show in full)"
+            : answer
+              ? "Details"
+              : "Result",
           children: (
             <pre className="kx:m-0 kx:max-h-96 kx:overflow-auto kx:font-mono kx:text-xs">
               {json}
@@ -657,5 +690,29 @@ function ResultView({ value, truncated }: Readonly<{ value: unknown; truncated: 
         },
       ]}
     />
+  );
+  if (!answer) return raw;
+  return (
+    <>
+      <div className="kx:w-fit kx:max-w-full kx:rounded-2xl kx:rounded-tl-md kx:bg-fill kx:px-3.5 kx:py-2.5">
+        <Markdown text={answer.text} />
+      </div>
+      {answer.unresolved.length > 0 && (
+        <Alert
+          className="kx:rounded-xl"
+          type="warning"
+          showIcon
+          title="Left open"
+          description={
+            <ul className="kx:m-0 kx:pl-4">
+              {answer.unresolved.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
+          }
+        />
+      )}
+      {typeof value !== "string" && raw}
+    </>
   );
 }

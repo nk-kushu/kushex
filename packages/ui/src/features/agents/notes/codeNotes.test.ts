@@ -36,6 +36,21 @@ it("keeps a note that would close its own block intact", () => {
   expect(parseNotes(text)).toHaveLength(1);
 });
 
+it("writes general notes first, without a file or lines, and keeps their code blocks", () => {
+  const general = note({
+    id: "n2",
+    file: null,
+    start: 0,
+    end: 0,
+    snippet: "",
+    body: "# Ideas\n\n```ts\nconst keep = true;\n```\n\nMore text.",
+  });
+  const text = serializeNotes([note(), general]);
+  expect(text).toContain(`<!-- kushex-note id="n2" created="${general.created}" -->\n### General`);
+  expect(parseNotes(text)).toEqual([general, note()]);
+  expect(anchorNote(general, undefined).status).toBe("general");
+});
+
 it("ignores hand-written text and broken blocks", () => {
   const text = `# Code notes\n\nSome prose.\n\n<!-- kushex-note id="x" file="a.ts" start="0" end="1" -->\nbad\n<!-- /kushex-note -->\n`;
   expect(parseNotes(text)).toEqual([]);
